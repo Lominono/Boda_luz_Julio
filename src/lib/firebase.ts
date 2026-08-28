@@ -263,4 +263,18 @@ export const DataStore = {
       }
     }
   },
+
+  async deleteGuestbookMessage(id: string): Promise<void> {
+    const existing = await this.getGuestbookMessages();
+    const filtered = existing.filter((item) => item.id !== id);
+    localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(filtered));
+
+    if (db) {
+      try {
+        await deleteDoc(doc(db, 'guestbook_messages', id));
+      } catch (err) {
+        console.warn('Firebase guestbook delete error:', err);
+      }
+    }
+  },
 };

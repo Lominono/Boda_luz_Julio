@@ -11,7 +11,9 @@ import {
   Send,
   Users,
   UserPlus,
-  HeartHandshake
+  HeartHandshake,
+  MessageSquareHeart,
+  ArrowDown
 } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
 import { RsvpData, AccessPasscode } from '../../types';
@@ -54,15 +56,6 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
       setFormData(prev => ({ ...prev, fullName: currentPasscode.guestName }));
     }
   }, [currentPasscode]);
-
-  const dietaryOptions = [
-    'Sin Gluten (Celíaco)',
-    'Vegetariano',
-    'Vegano',
-    'Sin Lactosa',
-    'Menú Infantil',
-    'Sin Mariscos / Frutos Secos',
-  ];
 
   const handleDietaryToggle = (option: string) => {
     sound.playClick();
@@ -135,9 +128,21 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
         ? `\n👥 Acompañantes adicionales (${formData.additionalGuestsCount}): ${formData.companionNames.join(', ')}`
         : '';
     const totalText = formData.attending === 'yes' ? `\n🎟️ Total plazas: ${1 + formData.additionalGuestsCount} persona(s)` : '';
+    const dietaryInfo = [
+      ...formData.dietaryRestrictions,
+      formData.dietaryOther ? `Detalle: ${formData.dietaryOther}` : '',
+    ].filter(Boolean).join(', ');
 
-    const text = `¡Hola Luz y Julio! ✨\n\nConfirmo mi asistencia para su boda:\n👤 Nombre: ${formData.fullName}\n✨ Asistencia: ${status}${totalText}${companionsText}\n🍽️ Alergias/Menú: ${formData.dietaryRestrictions.join(', ') || 'Estándar'}\n🎵 Canción: ${formData.songRequest || 'Sorpréndannos'}\n💬 Mensaje: ${formData.loveMessage || '¡Felicidades!'}`;
+    const text = `¡Hola Luz y Julio! ✨\n\nConfirmo mi asistencia para su boda:\n👤 Nombre: ${formData.fullName}\n✨ Asistencia: ${status}${totalText}${companionsText}\n🍽️ Alergias/Menú: ${dietaryInfo || 'Estándar'}\n🎵 Canción: ${formData.songRequest || 'Sorpréndannos'}\n💬 Mensaje: ${formData.loveMessage || '¡Felicidades!'}`;
     return encodeURIComponent(text);
+  };
+
+  const scrollToGuestbook = () => {
+    sound.playClick();
+    const elem = document.getElementById('dedicatorias');
+    if (elem) {
+      elem.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -187,7 +192,26 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                   : 'Agradecemos que nos lo hayas comunicado. Te tendremos muy presentes en nuestras oraciones y corazón.'}
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+              {/* Callout to leave a message in the guestbook */}
+              <div className="my-6 p-5 rounded-2xl bg-gradient-to-r from-gold-500/15 via-gold-400/25 to-gold-500/15 border border-gold-400/30 text-center">
+                <p className="text-sm font-serif text-gold-200 font-bold mb-1 flex items-center justify-center gap-1.5">
+                  <MessageSquareHeart className="w-4 h-4 text-gold-400" />
+                  ¿Te gustaría dedicarle unas palabras a los novios?
+                </p>
+                <p className="text-xs text-white/70 font-sans mb-3">
+                  Comparte tus bendiciones y felicitaciones en el Muro de Dedicatorias.
+                </p>
+                <button
+                  type="button"
+                  onClick={scrollToGuestbook}
+                  className="inline-flex items-center gap-1.5 py-2 px-5 rounded-full bg-white hover:bg-gold-300 text-black text-xs font-serif font-bold transition-all active:scale-95 cursor-pointer shadow-md"
+                >
+                  <span>Ir al Muro de Dedicatorias</span>
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mt-4">
                 <a
                   href={`https://wa.me/595981000000?text=${getWhatsAppMessage()}`}
                   target="_blank"
@@ -359,32 +383,58 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                     </div>
                   )}
 
-                  {/* Dietary Requirements */}
+                  {/* Dietary Requirements (Simplified to 2 options: Celíaco or Otra Alergia) */}
                   <div>
                     <label className="block text-xs uppercase tracking-wider text-gold-300 font-sans font-semibold mb-2 flex items-center gap-1.5">
                       <Utensils className="w-3.5 h-3.5 text-gold-400" />
-                      Alergias o Requerimientos de Menú (Opcional)
+                      Requerimientos de Menú / Alergias (Opcional)
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                      {dietaryOptions.map((opt) => {
-                        const selected = formData.dietaryRestrictions.includes(opt);
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => handleDietaryToggle(opt)}
-                            className={`p-2.5 rounded-lg border text-left text-xs font-sans transition-all flex items-center gap-1.5 cursor-pointer ${
-                              selected
-                                ? 'bg-white text-black border-white font-bold shadow-[0_0_15px_rgba(255,255,255,0.3)]'
-                                : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
-                            }`}
-                          >
-                            <span className={`w-3 h-3 rounded-full border ${selected ? 'bg-black border-black' : 'border-white/50'}`} />
-                            {opt}
-                          </button>
-                        );
-                      })}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                      {/* Option 1: Celíaco */}
+                      <button
+                        type="button"
+                        onClick={() => handleDietaryToggle('Celíaco / Sin Gluten')}
+                        className={`p-3 rounded-xl border text-left text-xs font-sans transition-all flex items-center gap-2 cursor-pointer ${
+                          formData.dietaryRestrictions.includes('Celíaco / Sin Gluten')
+                            ? 'bg-white text-black border-white font-bold shadow-md'
+                            : 'bg-white/5 text-white/70 border-white/15 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 ${formData.dietaryRestrictions.includes('Celíaco / Sin Gluten') ? 'bg-black border-black' : 'border-white/50'}`} />
+                        <span>Celíaco / Sin Gluten</span>
+                      </button>
+
+                      {/* Option 2: Otra Alergia */}
+                      <button
+                        type="button"
+                        onClick={() => handleDietaryToggle('Otra Alergia / Menú Especial')}
+                        className={`p-3 rounded-xl border text-left text-xs font-sans transition-all flex items-center gap-2 cursor-pointer ${
+                          formData.dietaryRestrictions.includes('Otra Alergia / Menú Especial')
+                            ? 'bg-white text-black border-white font-bold shadow-md'
+                            : 'bg-white/5 text-white/70 border-white/15 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 ${formData.dietaryRestrictions.includes('Otra Alergia / Menú Especial') ? 'bg-black border-black' : 'border-white/50'}`} />
+                        <span>Otra Alergia o Requerimiento</span>
+                      </button>
                     </div>
+
+                    {/* Especificar Alergia si se selecciona Otra */}
+                    {formData.dietaryRestrictions.includes('Otra Alergia / Menú Especial') && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-2.5"
+                      >
+                        <input
+                          type="text"
+                          value={formData.dietaryOther || ''}
+                          onChange={(e) => setFormData({ ...formData, dietaryOther: e.target.value })}
+                          placeholder="Especifica tu requerimiento (Ej: Lactosa, mariscos, vegetariano, etc.)"
+                          className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-gold-400/40 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-sm"
+                        />
+                      </motion.div>
+                    )}
                   </div>
 
                   {/* Song Request */}

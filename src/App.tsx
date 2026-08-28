@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Preloader from './components/common/Preloader';
 import LuxuryBrandHero from './components/landing/LuxuryBrandHero';
 import VantaCloudsBackground from './components/reactbits/VantaCloudsBackground';
 import GradualBlur from './components/reactbits/GradualBlur';
@@ -15,6 +16,7 @@ import { ArrowLeft } from 'lucide-react';
 import { sound } from './utils/soundEffects';
 
 export const App: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'hero' | 'invitation' | 'adminLogin' | 'adminDashboard'>('hero');
 
   // Check URL query parameters / hash for /admin
@@ -68,6 +70,11 @@ export const App: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-black text-white selection:bg-white selection:text-black font-sans">
+      {/* Smart Preloader for Mobile & Desktop */}
+      {isLoading && (
+        <Preloader onLoaded={() => setIsLoading(false)} />
+      )}
+
       {/* 1. Full-Viewport Luxury Video Hero Landing */}
       {currentView === 'hero' && (
         <LuxuryBrandHero
@@ -75,7 +82,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* 2. Exclusive Admin Login Screen (Accessed via /#admin or /?admin=true) */}
+      {/* 2. Exclusive Admin Login Screen (Accessed via /#admin) */}
       {currentView === 'adminLogin' && (
         <AdminLogin
           onSuccess={handleAdminLoginSuccess}

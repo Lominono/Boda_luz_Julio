@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { Sparkles, Heart, Send, MessageSquareHeart } from 'lucide-react';
+import { Sparkles, Heart, Send, MessageSquareHeart, Trash2 } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
 import { GuestbookMessage } from '../../types';
 import { DataStore } from '../../lib/firebase';
 
 const LIKED_STORAGE_KEY = 'boda_luz_julio_user_likes_v1';
+const AUTHORED_STORAGE_KEY = 'boda_luz_julio_my_authored_msgs_v1';
 
 export const GuestbookSection: React.FC = () => {
   const [messages, setMessages] = useState<GuestbookMessage[]>([]);
@@ -16,6 +17,7 @@ export const GuestbookSection: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [myAuthoredIds, setMyAuthoredIds] = useState<Set<string>>(new Set());
 
   const loadMessages = async () => {
     const list = await DataStore.getGuestbookMessages();
@@ -23,9 +25,13 @@ export const GuestbookSection: React.FC = () => {
 
     // Load liked IDs
     try {
-      const stored = localStorage.getItem(LIKED_STORAGE_KEY);
-      if (stored) {
-        setLikedIds(new Set(JSON.parse(stored)));
+      const storedLikes = localStorage.getItem(LIKED_STORAGE_KEY);
+      if (storedLikes) {
+        setLikedIds(new Set(JSON.parse(storedLikes)));
+      }
+      const storedAuthored = localStorage.getItem(AUTHORED_STORAGE_KEY);
+      if (storedAuthored) {
+        setMyAuthoredIds(new Set(JSON.parse(storedAuthored)));
       }
     } catch {
       // Ignore
@@ -58,6 +64,13 @@ export const GuestbookSection: React.FC = () => {
 
     await DataStore.saveGuestbookMessage(newMessage);
     setMessages((prev) => [newMessage, ...prev]);
+
+    // Save to authored IDs so this user can delete it if they change their mind
+    const updatedAuthored = new Set(myAuthoredIds);
+    updatedAuthored.add(newMessage.id);
+    setMyAuthoredIds(updatedAuthored);
+    localStorage.setItem(AUTHORED_STORAGE_KEY, JSON.stringify(Array.from(updatedAuthored)));
+
     setName('');
     setRelation('');
     setMessageText('');
@@ -71,6 +84,19 @@ export const GuestbookSection: React.FC = () => {
       origin: { y: 0.7 },
       colors: ['#D4AF37', '#E6CA65', '#DEB3B3'],
     });
+  };
+
+  const handleDeleteMyMessage = async (id: string) => {
+    if (window.confirm('¿Deseas eliminar tu dedicatoria del mural?')) {
+      sound.playClick();
+      await DataStore.deleteGuestbookMessage(id);
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+
+      const updatedAuthored = new Set(myAuthoredIds);
+      updatedAuthored.delete(id);
+      setMyAuthoredIds(updatedAuthored);
+      localStorage.setItem(AUTHORED_STORAGE_KEY, JSON.stringify(Array.from(updatedAuthored)));
+    }
   };
 
   const handleToggleLike = async (id: string) => {
@@ -248,6 +274,8 @@ export const GuestbookSection: React.FC = () => {
         ) : (
           messages.map((item) => {
             const isLiked = likedIds.has(item.id);
+            const isMyAuthored = myAuthoredIds.has(item.id);
+
             return (
               <motion.div
                 key={item.id}
@@ -264,28 +292,48 @@ export const GuestbookSection: React.FC = () => {
                       {item.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h4 className="font-serif text-lg font-bold text-white">
-                        {item.name}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-serif text-lg font-bold text-white">
+                          {item.name}
+                        </h4>
+                        {isMyAuthored && (
+                          <span className="px-2 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/30 text-gold-300 text-[10px] uppercase font-sans">
+                            Tu mensaje
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-gold-300 font-sans font-medium">
                         {item.relation} • <span className="text-white/50 font-normal">{item.createdAt}</span>
                       </span>
                     </div>
                   </div>
 
-                  {/* 1 Like per User Heart Toggle */}
-                  <button
-                    onClick={() => handleToggleLike(item.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all active:scale-90 cursor-pointer ${
-                      isLiked
-                        ? 'bg-roseDust-950/80 border-roseDust-400 text-roseDust-300 shadow-[0_0_15px_rgba(203,143,143,0.3)]'
-                        : 'bg-white/5 hover:bg-white/10 border-white/15 text-white/70'
-                    }`}
-                    title={isLiked ? 'Quitar like' : 'Dar like a este mensaje'}
-                  >
-                    <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-roseDust-400 text-roseDust-400' : 'text-white/60'}`} />
-                    <span className="text-xs font-sans font-bold">{item.likes}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Delete button if authored by this device */}
+                    {isMyAuthored && (
+                      <button
+                        onClick={() => handleDeleteMyMessage(item.id)}
+                        className="p-1.5 rounded-full hover:bg-roseDust-950/60 text-white/40 hover:text-roseDust-400 transition-colors cursor-pointer"
+                        title="Eliminar mi mensaje del mural"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {/* 1 Like per User Heart Toggle */}
+                    <button
+                      onClick={() => handleToggleLike(item.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all active:scale-90 cursor-pointer ${
+                        isLiked
+                          ? 'bg-roseDust-950/80 border-roseDust-400 text-roseDust-300 shadow-[0_0_15px_rgba(203,143,143,0.3)]'
+                          : 'bg-white/5 hover:bg-white/10 border-white/15 text-white/70'
+                      }`}
+                      title={isLiked ? 'Quitar like' : 'Dar like a este mensaje'}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-roseDust-400 text-roseDust-400' : 'text-white/60'}`} />
+                      <span className="text-xs font-sans font-bold">{item.likes}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 pl-4 border-l-2 border-gold-400/60">

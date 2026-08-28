@@ -20,7 +20,7 @@ export const FooterSection: React.FC = () => {
         </p>
 
         <p className="text-xs uppercase tracking-[0.25em] text-white/60 font-sans font-medium mb-6">
-          9 de Octubre de 2026 • Paraguay
+          9 de Octubre de 2026 • Recepciones Luana Ko'ê Pyta
         </p>
 
         <div className="my-6">
@@ -38,7 +38,7 @@ export const FooterSection: React.FC = () => {
 
         {/* Discreet Credits with GitHub Link */}
         <div className="pt-2 text-[11px] text-white/50 uppercase tracking-widest font-sans">
-          Diseñado & Creado con amor por{' '}
+          Hecho por{' '}
           <a
             href="https://github.com/Lominono"
             target="_blank"

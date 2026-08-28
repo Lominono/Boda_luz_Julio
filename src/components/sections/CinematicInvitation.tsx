@@ -193,7 +193,7 @@ export const CinematicInvitation: React.FC = () => {
               Recepciones Luana
             </span>
             <span className="text-xs text-gold-400 font-sans font-medium">
-              Ko'ê Pyta, Paraguay
+              Ko'ê Pyta
             </span>
           </div>
         </div>

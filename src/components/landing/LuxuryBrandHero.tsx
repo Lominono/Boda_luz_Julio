@@ -192,7 +192,7 @@ export const LuxuryBrandHero: React.FC<LuxuryBrandHeroProps> = ({
           {/* Credits in menu with GitHub link */}
           <div className="mt-12 pt-6 border-t border-white/15 flex flex-col items-center gap-1.5 text-white/60 text-xs font-sans font-light">
             <span>
-              Diseñado & creado por{' '}
+              Hecho por{' '}
               <a
                 href="https://github.com/Lominono"
                 target="_blank"
@@ -202,7 +202,7 @@ export const LuxuryBrandHero: React.FC<LuxuryBrandHeroProps> = ({
                 oreganos
               </a>
             </span>
-            <span className="text-[10px] text-gold-400 tracking-wider">9 de Octubre de 2026 • Paraguay</span>
+            <span className="text-[10px] text-gold-400 tracking-wider">9 de Octubre de 2026 • Recepciones Luana Ko'ê Pyta</span>
           </div>
         </div>
       </div>
@@ -251,7 +251,7 @@ export const LuxuryBrandHero: React.FC<LuxuryBrandHeroProps> = ({
                   «Con la bendición de Dios, nos gustaría tenerte muy cerca en este día tan especial para celebrar y compartir juntos este hermoso momento de nuestras vidas.»
                 </p>
                 <p className="text-xs font-sans text-white/60 pt-1">
-                  Viernes, 9 de Octubre de 2026 • Recepciones Luana Ko'ê Pyta, Paraguay
+                  Viernes, 9 de Octubre de 2026 • Recepciones Luana Ko'ê Pyta
                 </p>
               </div>
 
@@ -320,7 +320,7 @@ export const LuxuryBrandHero: React.FC<LuxuryBrandHeroProps> = ({
               transitionDelay: mounted ? '600ms' : '0ms',
             }}
           >
-            Viernes, 9 de Octubre de 2026 • Recepciones Luana Ko'ê Pyta, Paraguay.
+            Viernes, 9 de Octubre de 2026 • Recepciones Luana Ko'ê Pyta.
           </p>
 
           {/* CTA */}
