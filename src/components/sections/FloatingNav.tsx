@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HeartHandshake, MessageSquareHeart, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
+import { weddingAudio } from '../../utils/audioController';
 
 interface FloatingNavProps {
   onBackToCover?: () => void;
 }
 
 export const FloatingNav: React.FC<FloatingNavProps> = ({ onBackToCover }) => {
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(weddingAudio.getIsPlaying());
+
+  useEffect(() => {
+    const unsubscribe = weddingAudio.subscribe((playing) => {
+      setIsPlaying(playing);
+    });
+    return unsubscribe;
+  }, []);
 
   const scrollTo = (id: string) => {
     sound.playClick();
@@ -18,8 +26,9 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onBackToCover }) => {
   };
 
   const handleToggleSound = () => {
-    const newState = sound.toggleSound();
-    setSoundEnabled(newState);
+    sound.playClick();
+    weddingAudio.toggle();
+    sound.toggleSound();
   };
 
   return (
@@ -31,7 +40,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onBackToCover }) => {
             sound.playClick();
             onBackToCover();
           }}
-          className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer"
+          className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer active:scale-95"
           title="Volver a la portada de entrada"
         >
           <ArrowLeft className="w-4 h-4 text-gold-400" />
@@ -50,7 +59,7 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onBackToCover }) => {
 
       <button
         onClick={() => scrollTo('dedicatorias')}
-        className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer"
+        className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer active:scale-95"
         title="Dedicatorias"
       >
         <MessageSquareHeart className="w-4 h-4 text-gold-400" />
@@ -59,16 +68,16 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onBackToCover }) => {
 
       <button
         onClick={handleToggleSound}
-        className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer"
-        title={soundEnabled ? 'Silenciar efectos' : 'Activar efectos de sonido'}
+        className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer active:scale-95"
+        title={isPlaying ? 'Pausar música y silenciar' : 'Reproducir música'}
       >
-        {soundEnabled ? (
+        {isPlaying ? (
           <Volume2 className="w-4 h-4 text-gold-400" />
         ) : (
-          <VolumeX className="w-4 h-4 text-gray-500" />
+          <VolumeX className="w-4 h-4 text-white/50" />
         )}
         <span className="text-[10px] font-serif uppercase tracking-wider">
-          {soundEnabled ? 'Sonido' : 'Mudo'}
+          {isPlaying ? 'Música' : 'Mudo'}
         </span>
       </button>
     </nav>
