@@ -35,6 +35,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
 
   // Deletion Modal with Reason State
   const [deletingRsvp, setDeletingRsvp] = useState<RsvpData | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState<GuestbookMessage | null>(null);
   const [cancellationReason, setCancellationReason] = useState('Capacidad de plazas ajustada');
   const [customReason, setCustomReason] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -96,12 +97,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
     setDeletingRsvp(null);
   };
 
-  const handleDeleteMessage = async (id: string, authorName: string) => {
-    if (window.confirm(`¿Deseas eliminar la dedicatoria de "${authorName}" del mural?`)) {
-      sound.playClick();
-      await DataStore.deleteGuestbookMessage(id);
-      setMessages((prev) => prev.filter((m) => m.id !== id));
-    }
+  const handleConfirmDeleteMessage = async () => {
+    if (!deletingMessage) return;
+    setIsDeleting(true);
+    sound.playClick();
+    await DataStore.deleteGuestbookMessage(deletingMessage.id);
+    setMessages((prev) => prev.filter((m) => m.id !== deletingMessage.id));
+    setIsDeleting(false);
+    setDeletingMessage(null);
   };
 
   // Metrics Calculations
@@ -536,11 +539,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
 
                     {/* Admin Delete Message Button */}
                     <button
-                      onClick={() => handleDeleteMessage(item.id, item.name)}
-                      className="p-2 rounded-full bg-roseDust-950/60 hover:bg-roseDust-900 text-roseDust-400 transition-colors cursor-pointer"
-                      title="Eliminar mensaje inapropiado"
+                      onClick={() => {
+                        sound.playClick();
+                        setDeletingMessage(item);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-roseDust-950/80 hover:bg-roseDust-900 border border-roseDust-500/40 text-roseDust-300 text-xs font-sans transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                      title="Eliminar este mensaje del mural"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
+                      <span>Eliminar</span>
                     </button>
                   </div>
                 </div>
@@ -549,6 +556,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
           </div>
         )}
       </div>
+
+      {/* DELETE MESSAGE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deletingMessage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="relative w-full max-w-md bg-[#161311] border border-roseDust-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl"
+            >
+              <button
+                onClick={() => setDeletingMessage(null)}
+                className="absolute top-5 right-5 text-white/60 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="w-12 h-12 rounded-full bg-roseDust-500/20 text-roseDust-300 flex items-center justify-center mx-auto mb-3">
+                <Trash2 className="w-6 h-6" />
+              </div>
+
+              <h3 className="font-instrument text-2xl text-white text-center font-normal">
+                Eliminar Mensaje del Mural
+              </h3>
+              <p className="text-xs text-white/70 font-sans text-center mt-1">
+                ¿Deseas eliminar permanentemente la dedicatoria de{' '}
+                <strong className="text-white font-bold">{deletingMessage.name}</strong> del mural público?
+              </p>
+
+              <div className="mt-4 p-3.5 rounded-xl bg-white/5 border border-white/10 text-white/80 font-serif italic text-sm">
+                «{deletingMessage.message}»
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setDeletingMessage(null)}
+                  className="py-2.5 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white font-sans text-xs transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDeleteMessage}
+                  className="py-2.5 px-5 rounded-full bg-roseDust-600 hover:bg-roseDust-500 text-white font-sans font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? 'Eliminando...' : 'Eliminar del Mural'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* CANCELLATION REASON MODAL */}
       <AnimatePresence>
