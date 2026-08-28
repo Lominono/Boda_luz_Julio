@@ -7,13 +7,14 @@ import {
   Heart,
   Music,
   Utensils,
-  MessageSquare,
   Send,
   Users,
   UserPlus,
   HeartHandshake,
   MessageSquareHeart,
-  ArrowDown
+  ArrowDown,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
 import { RsvpData, AccessPasscode } from '../../types';
@@ -42,19 +43,33 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
 
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cancellationNotice, setCancellationNotice] = useState<{ isCancelled: boolean; reason?: string } | null>(null);
 
   useEffect(() => {
-    const savedRsvp = localStorage.getItem('wedding_rsvp_luz_julio_v2');
-    if (savedRsvp) {
-      try {
-        setFormData(JSON.parse(savedRsvp));
-        setSubmitted(true);
-      } catch {
-        // Ignore
+    const checkStatus = async () => {
+      const savedRsvp = localStorage.getItem('wedding_rsvp_luz_julio_v2');
+      if (savedRsvp) {
+        try {
+          const parsed = JSON.parse(savedRsvp);
+          setFormData(parsed);
+
+          // Check if admin cancelled this RSVP
+          const cancellation = await DataStore.checkCancellation(parsed.phone || parsed.fullName);
+          if (cancellation?.isCancelled) {
+            setCancellationNotice(cancellation);
+            setSubmitted(false);
+          } else {
+            setSubmitted(true);
+          }
+        } catch {
+          // Ignore
+        }
+      } else if (currentPasscode?.guestName && currentPasscode.guestName !== 'Invitación General') {
+        setFormData((prev) => ({ ...prev, fullName: currentPasscode.guestName }));
       }
-    } else if (currentPasscode?.guestName && currentPasscode.guestName !== 'Invitación General') {
-      setFormData(prev => ({ ...prev, fullName: currentPasscode.guestName }));
-    }
+    };
+
+    checkStatus();
   }, [currentPasscode]);
 
   const handleDietaryToggle = (option: string) => {
@@ -89,6 +104,15 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
     setFormData({ ...formData, companionNames: updated });
   };
 
+  const handleResetForResubmit = () => {
+    sound.playClick();
+    if (formData.phone || formData.fullName) {
+      DataStore.clearCancellation(formData.phone || formData.fullName);
+    }
+    setCancellationNotice(null);
+    setSubmitted(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fullName.trim()) return;
@@ -106,6 +130,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
     try {
       await DataStore.saveRsvp(rsvpToSave);
       localStorage.setItem('wedding_rsvp_luz_julio_v2', JSON.stringify(rsvpToSave));
+      setCancellationNotice(null);
       setSubmitted(true);
       setIsSubmitting(false);
 
@@ -119,22 +144,6 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
     } catch {
       setIsSubmitting(false);
     }
-  };
-
-  const getWhatsAppMessage = () => {
-    const status = formData.attending === 'yes' ? '¡Sí, asistiré con mucha alegría! 🎉' : 'Lamentablemente no podré asistir 😢';
-    const companionsText =
-      formData.additionalGuestsCount > 0
-        ? `\n👥 Acompañantes adicionales (${formData.additionalGuestsCount}): ${formData.companionNames.join(', ')}`
-        : '';
-    const totalText = formData.attending === 'yes' ? `\n🎟️ Total plazas: ${1 + formData.additionalGuestsCount} persona(s)` : '';
-    const dietaryInfo = [
-      ...formData.dietaryRestrictions,
-      formData.dietaryOther ? `Detalle: ${formData.dietaryOther}` : '',
-    ].filter(Boolean).join(', ');
-
-    const text = `¡Hola Luz y Julio! ✨\n\nConfirmo mi asistencia para su boda:\n👤 Nombre: ${formData.fullName}\n✨ Asistencia: ${status}${totalText}${companionsText}\n🍽️ Alergias/Menú: ${dietaryInfo || 'Estándar'}\n🎵 Canción: ${formData.songRequest || 'Sorpréndannos'}\n💬 Mensaje: ${formData.loveMessage || '¡Felicidades!'}`;
-    return encodeURIComponent(text);
   };
 
   const scrollToGuestbook = () => {
@@ -167,6 +176,40 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
         </p>
         <div className="w-16 h-[1px] bg-white/20 mx-auto mt-4" />
       </div>
+
+      {/* Notice if previous RSVP was cancelled by admin */}
+      {cancellationNotice?.isCancelled && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 p-6 rounded-3xl bg-[#1F1210] border border-roseDust-500/50 shadow-2xl text-white"
+        >
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-full bg-roseDust-500/20 text-roseDust-300 flex-shrink-0">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-serif text-lg font-bold text-roseDust-200">
+                Tu confirmación anterior fue cancelada por los administradores
+              </h4>
+              <p className="text-xs sm:text-sm text-white/80 font-sans mt-1">
+                <strong>Motivo indicado:</strong> «{cancellationNotice.reason || 'Sin motivo especificado'}»
+              </p>
+              <p className="text-xs text-white/60 font-sans mt-2">
+                Si deseas actualizar tus datos, corregir información o volver a confirmar, puedes completar el formulario nuevamente a continuación.
+              </p>
+              <button
+                type="button"
+                onClick={handleResetForResubmit}
+                className="mt-4 inline-flex items-center gap-2 py-2 px-5 rounded-full bg-white hover:bg-gold-300 text-black text-xs font-serif font-bold transition-all active:scale-95 cursor-pointer shadow-md"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Volver a enviar confirmación</span>
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <div className="bg-black/80 backdrop-blur-2xl rounded-3xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-6 sm:p-10">
         <AnimatePresence mode="wait">
@@ -211,23 +254,13 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                 </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mt-4">
-                <a
-                  href={`https://wa.me/595981000000?text=${getWhatsAppMessage()}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-serif font-semibold text-sm shadow-md transition-all active:scale-95 cursor-pointer"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Enviar copia por WhatsApp a los novios
-                </a>
-
+              <div className="flex items-center justify-center gap-3 max-w-md mx-auto mt-4">
                 <button
                   type="button"
                   onClick={() => setSubmitted(false)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-serif text-sm transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-serif text-sm transition-all cursor-pointer"
                 >
-                  Modificar datos
+                  Modificar datos de mi respuesta
                 </button>
               </div>
             </motion.div>

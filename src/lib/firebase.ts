@@ -115,20 +115,112 @@ export const DataStore = {
       }
     }
 
+    // Clear any previous cancellation if the user is re-submitting
+    await this.clearCancellation(rsvp.phone || rsvp.fullName);
+
     return true;
   },
 
-  async deleteRsvp(id: string): Promise<void> {
+  async deleteRsvp(
+    id: string,
+    reason: string = 'Cancelación solicitada por administración',
+    guestInfo?: { fullName: string; phone?: string }
+  ): Promise<void> {
     const existing = await this.getRsvps();
+    const target = existing.find((item) => item.id === id);
     const filtered = existing.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(filtered));
+
+    const name = guestInfo?.fullName || target?.fullName || '';
+    const phone = guestInfo?.phone || target?.phone || '';
+
+    // Record cancellation reason
+    const cancellationKey = (phone || name || id).trim().toLowerCase();
+    const cancellationData = {
+      id: `cancel-${id}`,
+      rsvpId: id,
+      fullName: name,
+      phone: phone,
+      reason: reason,
+      cancelledAt: new Date().toISOString(),
+    };
+
+    // Save in localStorage cancellations
+    try {
+      const stored = localStorage.getItem('wedding_rsvp_cancellations');
+      const list = stored ? JSON.parse(stored) : {};
+      list[cancellationKey] = cancellationData;
+      localStorage.setItem('wedding_rsvp_cancellations', JSON.stringify(list));
+    } catch {
+      // Ignore
+    }
 
     if (db) {
       try {
         await deleteDoc(doc(db, 'rsvps', id));
+        if (cancellationKey) {
+          await setDoc(doc(db, 'rsvp_cancellations', id), cancellationData);
+        }
       } catch (err) {
         console.warn('Firebase Firestore delete error:', err);
       }
+    }
+  },
+
+  async checkCancellation(identifier: string): Promise<{ isCancelled: boolean; reason?: string } | null> {
+    if (!identifier) return null;
+    const cleanKey = identifier.trim().toLowerCase();
+
+    // Check local storage first
+    try {
+      const stored = localStorage.getItem('wedding_rsvp_cancellations');
+      if (stored) {
+        const list = JSON.parse(stored);
+        if (list[cleanKey]) {
+          return { isCancelled: true, reason: list[cleanKey].reason };
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Check Firebase
+    if (db) {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'rsvp_cancellations'));
+        let foundReason: string | undefined;
+        querySnapshot.forEach((d) => {
+          const data = d.data();
+          if (
+            (data.phone && data.phone.trim().toLowerCase() === cleanKey) ||
+            (data.fullName && data.fullName.trim().toLowerCase() === cleanKey)
+          ) {
+            foundReason = data.reason;
+          }
+        });
+        if (foundReason) {
+          return { isCancelled: true, reason: foundReason };
+        }
+      } catch (err) {
+        console.warn('Firebase check cancellation error:', err);
+      }
+    }
+
+    return null;
+  },
+
+  async clearCancellation(identifier: string): Promise<void> {
+    if (!identifier) return;
+    const cleanKey = identifier.trim().toLowerCase();
+    try {
+      const stored = localStorage.getItem('wedding_rsvp_cancellations');
+      if (stored) {
+        const list = JSON.parse(stored);
+        delete list[cleanKey];
+        localStorage.setItem('wedding_rsvp_cancellations', JSON.stringify(list));
+      }
+    } catch {
+      // Ignore
     }
   },
 

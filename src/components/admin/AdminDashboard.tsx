@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
   CheckCircle,
@@ -12,7 +13,9 @@ import {
   RefreshCw,
   Phone,
   Trash2,
-  Heart
+  Heart,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { DataStore } from '../../lib/firebase';
 import { RsvpData, GuestbookMessage } from '../../types';
@@ -29,6 +32,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAttending, setFilterAttending] = useState<'all' | 'yes' | 'no'>('all');
+
+  // Deletion Modal with Reason State
+  const [deletingRsvp, setDeletingRsvp] = useState<RsvpData | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('Capacidad de plazas ajustada');
+  const [customReason, setCustomReason] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -50,11 +59,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
     loadData();
   }, []);
 
-  const handleDeleteRsvp = async (id: string, name: string) => {
-    if (window.confirm(`¿Estás seguro de eliminar la confirmación de ${name}?`)) {
+  const handleOpenDeleteModal = (rsvp: RsvpData) => {
+    sound.playClick();
+    setDeletingRsvp(rsvp);
+    setCancellationReason('Capacidad de plazas ajustada');
+    setCustomReason('');
+  };
+
+  const handleConfirmDeleteRsvp = async () => {
+    if (!deletingRsvp) return;
+    setIsDeleting(true);
+    sound.playClick();
+
+    const finalReason = cancellationReason === 'Otro' ? customReason.trim() || 'Cancelado por administración' : cancellationReason;
+
+    await DataStore.deleteRsvp(deletingRsvp.id!, finalReason, {
+      fullName: deletingRsvp.fullName,
+      phone: deletingRsvp.phone,
+    });
+
+    setRsvps((prev) => prev.filter((r) => r.id !== deletingRsvp.id));
+    setIsDeleting(false);
+    setDeletingRsvp(null);
+  };
+
+  const handleDeleteMessage = async (id: string, authorName: string) => {
+    if (window.confirm(`¿Deseas eliminar la dedicatoria de "${authorName}" del mural?`)) {
       sound.playClick();
-      await DataStore.deleteRsvp(id);
-      setRsvps((prev) => prev.filter((r) => r.id !== id));
+      await DataStore.deleteGuestbookMessage(id);
+      setMessages((prev) => prev.filter((m) => m.id !== id));
     }
   };
 
@@ -62,7 +95,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
   const confirmedRsvps = rsvps.filter((r) => r.attending === 'yes');
   const declinedRsvps = rsvps.filter((r) => r.attending === 'no');
 
-  // Total people = sum of (1 + additionalGuestsCount) for all attending
   const totalAttendeesCount = confirmedRsvps.reduce(
     (sum, r) => sum + (1 + (r.additionalGuestsCount || 0)),
     0
@@ -85,45 +117,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
     return matchesSearch;
   });
 
-  // Export to CSV Function
+  // Export to Excel / CSV Function (Formato Limpio y Profesional)
   const exportToCSV = () => {
     sound.playClick();
-    const headers = [
-      'Nombre Completo',
-      'Asistencia',
-      'Acompañantes Extra',
-      'Total Plazas',
-      'Nombres Acompañantes',
-      'Teléfono',
-      'Alergias/Menú',
-      'Canción Pedida',
-      'Mensaje/Dedicatoria',
-      'Fecha Confirmación',
+    const exportDate = new Date().toLocaleString('es-PY');
+
+    const metaHeader = [
+      `"REPORTE OFICIAL DE CONFIRMACIONES - BODA DE LUZ Y JULIO"`,
+      `"Fecha de Generación: ${exportDate}"`,
+      `"Total Plazas Confirmadas: ${totalAttendeesCount} (Titulares: ${confirmedRsvps.length} + Acompañantes: ${totalCompanionsCount})"`,
+      `"No Asistirán: ${declinedRsvps.length}"`,
+      `""`,
     ];
 
-    const rows = rsvps.map((r) => [
-      `"${r.fullName}"`,
-      r.attending === 'yes' ? 'SÍ ASISTIRÁ' : 'NO ASISTIRÁ',
-      r.additionalGuestsCount || 0,
-      r.attending === 'yes' ? 1 + (r.additionalGuestsCount || 0) : 0,
-      `"${(r.companionNames || []).join(', ')}"`,
-      `"${r.phone || ''}"`,
-      `"${(r.dietaryRestrictions || []).join(', ')}"`,
-      `"${r.songRequest || ''}"`,
-      `"${(r.loveMessage || '').replace(/"/g, '""')}"`,
-      `"${r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('es-PY') : ''}"`,
-    ]);
+    const columnHeaders = [
+      'Nº',
+      'Nombre Completo',
+      'Estado Asistencia',
+      'Total Plazas',
+      'Acompañantes Extras',
+      'Nombres Acompañantes',
+      'Teléfono Contacto',
+      'Enlace Directo WhatsApp',
+      'Requerimientos Menú / Alergias',
+      'Detalle Alergias',
+      'Canción Solicitada',
+      'Mensaje para los Novios',
+      'Fecha y Hora de Confirmación',
+    ];
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,\uFEFF' +
-      [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
+    const dataRows = rsvps.map((r, index) => {
+      const cleanPhone = (r.phone || '').replace(/[^0-9]/g, '');
+      const waLink = cleanPhone ? `https://wa.me/${cleanPhone}` : 'N/A';
+      const dietary = (r.dietaryRestrictions || []).join(', ') || 'Estándar';
+      const dietaryDetail = r.dietaryOther || 'Ninguno';
+      const companions = (r.companionNames || []).join(', ') || 'Ninguno';
+      const confirmedDate = r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('es-PY') : 'Sin fecha';
 
+      return [
+        index + 1,
+        `"${r.fullName.replace(/"/g, '""')}"`,
+        r.attending === 'yes' ? '"SÍ ASISTIRÁ"' : '"NO ASISTIRÁ"',
+        r.attending === 'yes' ? 1 + (r.additionalGuestsCount || 0) : 0,
+        r.additionalGuestsCount || 0,
+        `"${companions.replace(/"/g, '""')}"`,
+        `"${r.phone || 'No indicado'}"`,
+        `"${waLink}"`,
+        `"${dietary.replace(/"/g, '""')}"`,
+        `"${dietaryDetail.replace(/"/g, '""')}"`,
+        `"${(r.songRequest || 'Ninguna').replace(/"/g, '""')}"`,
+        `"${(r.loveMessage || 'Sin mensaje').replace(/"/g, '""')}"`,
+        `"${confirmedDate}"`,
+      ];
+    });
+
+    const csvLines = [
+      ...metaHeader,
+      columnHeaders.join(';'),
+      ...dataRows.map((row) => row.join(';')),
+    ];
+
+    // UTF-8 BOM for perfect Excel accent support
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + csvLines.join('\r\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute(
       'download',
-      `Confirmados_Boda_Luz_y_Julio_${new Date().toISOString().split('T')[0]}.csv`
+      `Invitados_Boda_Luz_y_Julio_${new Date().toISOString().split('T')[0]}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -131,7 +192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0E0C0A] text-white p-4 sm:p-6 md:p-10 select-none">
+    <div className="min-h-screen bg-[#0E0C0A] text-white p-4 sm:p-6 md:p-10 select-none font-sans">
       {/* Top Header */}
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/15">
         <div className="flex items-center gap-3">
@@ -152,7 +213,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
               </span>
             </div>
             <p className="text-xs text-white/60 font-sans mt-0.5">
-              Boda de Luz & Julio • Recepciones Luana Ko'ê Pyta, Paraguay
+              Boda de Luz & Julio • Recepciones Luana Ko'ê Pyta
             </p>
           </div>
         </div>
@@ -240,7 +301,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
               {messages.length}
             </span>
             <p className="text-[11px] text-white/60 font-sans mt-1">
-              Mensajes recibidos
+              Mensajes en el mural
             </p>
           </div>
         </div>
@@ -350,6 +411,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                         )}
                       </div>
 
+                      {/* Phone Display */}
+                      {rsvp.phone && (
+                        <p className="text-xs text-gold-300 font-mono font-medium">
+                          Teléfono: {rsvp.phone}
+                        </p>
+                      )}
+
                       {/* Companion Names */}
                       {rsvp.companionNames && rsvp.companionNames.length > 0 && (
                         <div className="text-xs text-gold-300/90 font-sans flex items-center gap-1.5 flex-wrap">
@@ -367,6 +435,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                           <span className="flex items-center gap-1">
                             <Utensils className="w-3.5 h-3.5 text-gold-400" />
                             {rsvp.dietaryRestrictions.join(', ')}
+                            {rsvp.dietaryOther && ` (${rsvp.dietaryOther})`}
                           </span>
                         )}
                         {rsvp.songRequest && (
@@ -385,14 +454,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                       )}
                     </div>
 
-                    {/* Actions & Phone */}
+                    {/* Actions: Admin WhatsApp + Delete with Reason */}
                     <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-white/10 justify-between md:justify-end">
                       {rsvp.phone && (
                         <a
                           href={`https://wa.me/${rsvp.phone.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-sans font-medium transition-all"
+                          className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-sans font-medium transition-all cursor-pointer"
+                          title="Enviar mensaje de WhatsApp al invitado"
                         >
                           <Phone className="w-3.5 h-3.5" />
                           <span>WhatsApp</span>
@@ -400,11 +470,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                       )}
 
                       <button
-                        onClick={() => handleDeleteRsvp(rsvp.id!, rsvp.fullName)}
-                        className="p-2 rounded-full hover:bg-roseDust-950/60 text-white/40 hover:text-roseDust-400 transition-colors cursor-pointer"
-                        title="Eliminar confirmación"
+                        onClick={() => handleOpenDeleteModal(rsvp)}
+                        className="inline-flex items-center gap-1 py-1.5 px-3 rounded-full bg-roseDust-950/60 hover:bg-roseDust-900 border border-roseDust-500/40 text-roseDust-300 text-xs font-sans transition-colors cursor-pointer"
+                        title="Cancelar y eliminar confirmación"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Eliminar</span>
                       </button>
                     </div>
                   </div>
@@ -414,7 +485,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
           </div>
         )}
 
-        {/* TAB 2: MESSAGES */}
+        {/* TAB 2: MESSAGES / DEDICATIONS */}
         {activeTab === 'messages' && (
           <div className="space-y-3">
             {messages.length === 0 ? (
@@ -444,9 +515,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-roseDust-300 text-xs font-sans">
-                    <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400" />
-                    <span>{item.likes} likes</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-roseDust-300 text-xs font-sans">
+                      <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400" />
+                      <span>{item.likes}</span>
+                    </div>
+
+                    {/* Admin Delete Message Button */}
+                    <button
+                      onClick={() => handleDeleteMessage(item.id, item.name)}
+                      className="p-2 rounded-full bg-roseDust-950/60 hover:bg-roseDust-900 text-roseDust-400 transition-colors cursor-pointer"
+                      title="Eliminar mensaje inapropiado"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -454,6 +536,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
           </div>
         )}
       </div>
+
+      {/* CANCELLATION REASON MODAL */}
+      <AnimatePresence>
+        {deletingRsvp && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="relative w-full max-w-md bg-[#161311] border border-roseDust-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl"
+            >
+              <button
+                onClick={() => setDeletingRsvp(null)}
+                className="absolute top-5 right-5 text-white/60 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="w-12 h-12 rounded-full bg-roseDust-500/20 text-roseDust-300 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+
+              <h3 className="font-instrument text-2xl text-white text-center font-normal">
+                Eliminar Confirmación
+              </h3>
+              <p className="text-xs text-white/70 font-sans text-center mt-1 mb-5">
+                Invitado: <strong className="text-white">{deletingRsvp.fullName}</strong>
+              </p>
+
+              <div className="space-y-3">
+                <label className="block text-xs uppercase tracking-wider text-gold-300 font-sans font-semibold">
+                  Selecciona el motivo de cancelación:
+                </label>
+                <select
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 font-sans text-white text-sm cursor-pointer"
+                >
+                  <option value="Capacidad de plazas ajustada">Capacidad de plazas ajustada</option>
+                  <option value="Cancelación solicitada por el invitado">Cancelación solicitada por el invitado</option>
+                  <option value="Datos incorrectos o registro duplicado">Datos incorrectos o registro duplicado</option>
+                  <option value="Otro">Otro (especificar)</option>
+                </select>
+
+                {cancellationReason === 'Otro' && (
+                  <input
+                    type="text"
+                    required
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    placeholder="Escribe el motivo personalizado..."
+                    className="w-full px-4 py-2.5 rounded-xl bg-black border border-gold-400/40 focus:outline-none focus:ring-2 focus:ring-gold-400 font-sans text-white text-sm"
+                  />
+                )}
+
+                <p className="text-[11px] text-white/50 font-sans pt-1">
+                  💡 Este motivo se le mostrará al invitado si vuelve a consultar el enlace para que conozca la razón y pueda volver a confirmar si corresponde.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setDeletingRsvp(null)}
+                  className="py-2.5 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white font-sans text-xs transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting || (cancellationReason === 'Otro' && !customReason.trim())}
+                  onClick={handleConfirmDeleteRsvp}
+                  className="py-2.5 px-5 rounded-full bg-roseDust-600 hover:bg-roseDust-500 text-white font-sans font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? 'Eliminando...' : 'Confirmar Eliminación'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

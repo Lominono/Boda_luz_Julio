@@ -201,7 +201,7 @@ export const CinematicInvitation: React.FC = () => {
         {/* Action Buttons */}
         <div className="mt-6 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
-            href="https://www.google.com/maps/search/?api=1&query=Recepciones+Luana+Koe+Pyta+Paraguay"
+            href="https://maps.app.goo.gl/GQ2QPpmfaAfmGNV17"
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => sound.playClick()}
