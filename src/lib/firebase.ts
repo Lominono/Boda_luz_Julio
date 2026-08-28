@@ -6,8 +6,6 @@ import {
   setDoc,
   deleteDoc,
   doc,
-  query,
-  orderBy,
   onSnapshot,
 } from 'firebase/firestore';
 import { RsvpData, GuestbookMessage, AccessPasscode } from '../types';
@@ -67,15 +65,27 @@ const STORAGE_KEYS = {
 export const DataStore = {
   // Real-time listener for RSVPs
   subscribeToRsvps(callback: (rsvps: RsvpData[]) => void): () => void {
+    const handleCustomSync = (e: Event) => {
+      const customEvent = e as CustomEvent<RsvpData[]>;
+      if (customEvent.detail) {
+        callback(customEvent.detail);
+      }
+    };
+    window.addEventListener('wedding_rsvp_sync', handleCustomSync);
+
     if (db) {
       try {
-        const q = query(collection(db, 'rsvps'), orderBy('confirmedAt', 'desc'));
         const unsubscribe = onSnapshot(
-          q,
+          collection(db, 'rsvps'),
           (querySnapshot) => {
             const list: RsvpData[] = [];
             querySnapshot.forEach((docSnap) => {
               list.push(docSnap.data() as RsvpData);
+            });
+            list.sort((a, b) => {
+              const timeA = new Date(a.confirmedAt || 0).getTime();
+              const timeB = new Date(b.confirmedAt || 0).getTime();
+              return timeB - timeA;
             });
             localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(list));
             callback(list);
@@ -85,27 +95,45 @@ export const DataStore = {
             this.getRsvps().then(callback);
           }
         );
-        return unsubscribe;
+
+        return () => {
+          unsubscribe();
+          window.removeEventListener('wedding_rsvp_sync', handleCustomSync);
+        };
       } catch (err) {
         console.warn('Real-time subscription init error:', err);
       }
     }
 
     this.getRsvps().then(callback);
-    return () => {};
+    return () => {
+      window.removeEventListener('wedding_rsvp_sync', handleCustomSync);
+    };
   },
 
   // Real-time listener for Guestbook Messages
   subscribeToGuestbook(callback: (messages: GuestbookMessage[]) => void): () => void {
+    const handleCustomSync = (e: Event) => {
+      const customEvent = e as CustomEvent<GuestbookMessage[]>;
+      if (customEvent.detail) {
+        callback(customEvent.detail);
+      }
+    };
+    window.addEventListener('wedding_guestbook_sync', handleCustomSync);
+
     if (db) {
       try {
-        const q = query(collection(db, 'guestbook_messages'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(
-          q,
+          collection(db, 'guestbook_messages'),
           (querySnapshot) => {
             const list: GuestbookMessage[] = [];
             querySnapshot.forEach((docSnap) => {
               list.push(docSnap.data() as GuestbookMessage);
+            });
+            list.sort((a, b) => {
+              const timeA = a.timestamp || parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+              const timeB = b.timestamp || parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+              return timeB - timeA;
             });
             localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(list));
             callback(list);
@@ -115,27 +143,37 @@ export const DataStore = {
             this.getGuestbookMessages().then(callback);
           }
         );
-        return unsubscribe;
+
+        return () => {
+          unsubscribe();
+          window.removeEventListener('wedding_guestbook_sync', handleCustomSync);
+        };
       } catch (err) {
         console.warn('Real-time subscription init error:', err);
       }
     }
 
     this.getGuestbookMessages().then(callback);
-    return () => {};
+    return () => {
+      window.removeEventListener('wedding_guestbook_sync', handleCustomSync);
+    };
   },
 
   // RSVPs
   async getRsvps(): Promise<RsvpData[]> {
     if (db) {
       try {
-        const q = query(collection(db, 'rsvps'), orderBy('confirmedAt', 'desc'));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDocs(collection(db, 'rsvps'));
         const rsvps: RsvpData[] = [];
         querySnapshot.forEach((docSnap) => {
           rsvps.push(docSnap.data() as RsvpData);
         });
         if (rsvps.length > 0) {
+          rsvps.sort((a, b) => {
+            const timeA = new Date(a.confirmedAt || 0).getTime();
+            const timeB = new Date(b.confirmedAt || 0).getTime();
+            return timeB - timeA;
+          });
           localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
           return rsvps;
         }
@@ -179,6 +217,7 @@ export const DataStore = {
       ),
     ];
     localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('wedding_rsvp_sync', { detail: updated }));
 
     // Also register message in guestbook if written
     if (rsvp.loveMessage && rsvp.loveMessage.trim()) {
@@ -189,6 +228,7 @@ export const DataStore = {
         message: rsvp.loveMessage.trim(),
         likes: 1,
         createdAt: new Date().toLocaleDateString('es-PY', { day: '2-digit', month: 'short' }),
+        timestamp: Date.now(),
         avatarColor: '#C5A059',
         userDeviceId: userDeviceId,
       });
@@ -217,6 +257,7 @@ export const DataStore = {
     const target = existing.find((item) => item.id === id);
     const filtered = existing.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(filtered));
+    window.dispatchEvent(new CustomEvent('wedding_rsvp_sync', { detail: filtered }));
 
     const name = guestInfo?.fullName || target?.fullName || '';
     const phone = guestInfo?.phone || target?.phone || '';
@@ -321,13 +362,15 @@ export const DataStore = {
   async getPasscodes(): Promise<AccessPasscode[]> {
     if (db) {
       try {
-        const q = query(collection(db, 'access_passcodes'), orderBy('createdAt', 'desc'));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDocs(collection(db, 'access_passcodes'));
         const passcodes: AccessPasscode[] = [];
         querySnapshot.forEach((docSnap) => {
           passcodes.push(docSnap.data() as AccessPasscode);
         });
-        if (passcodes.length > 0) return passcodes;
+        if (passcodes.length > 0) {
+          passcodes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          return passcodes;
+        }
       } catch (err) {
         console.warn('Firebase passcodes fetch error:', err);
       }
@@ -412,11 +455,15 @@ export const DataStore = {
   async getGuestbookMessages(): Promise<GuestbookMessage[]> {
     if (db) {
       try {
-        const q = query(collection(db, 'guestbook_messages'), orderBy('createdAt', 'desc'));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await getDocs(collection(db, 'guestbook_messages'));
         const messages: GuestbookMessage[] = [];
         querySnapshot.forEach((docSnap) => {
           messages.push(docSnap.data() as GuestbookMessage);
+        });
+        messages.sort((a, b) => {
+          const timeA = a.timestamp || parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+          const timeB = b.timestamp || parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+          return timeB - timeA;
         });
         localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(messages));
         return messages;
@@ -438,12 +485,17 @@ export const DataStore = {
 
   async saveGuestbookMessage(msg: GuestbookMessage): Promise<void> {
     const existing = await this.getGuestbookMessages();
-    const updated = [msg, ...existing.filter((m) => m.id !== msg.id)];
+    const msgWithTimestamp = {
+      ...msg,
+      timestamp: msg.timestamp || Date.now(),
+    };
+    const updated = [msgWithTimestamp, ...existing.filter((m) => m.id !== msg.id)];
     localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('wedding_guestbook_sync', { detail: updated }));
 
     if (db) {
       try {
-        await setDoc(doc(db, 'guestbook_messages', msg.id), msg);
+        await setDoc(doc(db, 'guestbook_messages', msgWithTimestamp.id), msgWithTimestamp);
       } catch (err) {
         console.warn('Firebase guestbook save error:', err);
       }
@@ -454,6 +506,7 @@ export const DataStore = {
     const existing = await this.getGuestbookMessages();
     const filtered = existing.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(filtered));
+    window.dispatchEvent(new CustomEvent('wedding_guestbook_sync', { detail: filtered }));
 
     if (db) {
       try {

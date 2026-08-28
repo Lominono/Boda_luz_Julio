@@ -275,80 +275,84 @@ export const GuestbookSection: React.FC = () => {
             Aún no hay dedicatorias publicadas. ¡Sé el primero en dejar un mensaje bonito para Luz y Julio!
           </div>
         ) : (
-          messages.map((item) => {
-            const isLiked = likedIds.has(item.id);
-            const isMyAuthored =
-              (item.userDeviceId && item.userDeviceId === currentDeviceId) ||
-              myAuthoredIds.has(item.id);
+          <AnimatePresence mode="popLayout">
+            {messages.map((item) => {
+              const isLiked = likedIds.has(item.id);
+              const isMyAuthored =
+                (item.userDeviceId && item.userDeviceId === currentDeviceId) ||
+                myAuthoredIds.has(item.id);
 
-            return (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-5 sm:p-6 rounded-3xl bg-black/75 backdrop-blur-md border border-white/15 shadow-md"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-serif font-bold text-black text-sm shadow-sm"
-                      style={{ backgroundColor: item.avatarColor }}
-                    >
-                      {item.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-serif text-lg font-bold text-white">
-                          {item.name}
-                        </h4>
-                        {isMyAuthored && (
-                          <span className="px-2 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/30 text-gold-300 text-[10px] uppercase font-sans font-medium">
-                            Tu mensaje
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-gold-300 font-sans font-medium">
-                        {item.relation} • <span className="text-white/50 font-normal">{item.createdAt}</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Delete button if authored by this device */}
-                    {isMyAuthored && (
-                      <button
-                        onClick={() => handleDeleteMyMessage(item.id)}
-                        className="p-1.5 rounded-full hover:bg-roseDust-950/60 text-white/40 hover:text-roseDust-400 transition-colors cursor-pointer"
-                        title="Eliminar mi mensaje del mural"
+              return (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.92, y: -10, transition: { duration: 0.25 } }}
+                  className="p-5 sm:p-6 rounded-3xl bg-black/75 backdrop-blur-md border border-white/15 shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-serif font-bold text-black text-sm shadow-sm"
+                        style={{ backgroundColor: item.avatarColor }}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {item.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-serif text-lg font-bold text-white">
+                            {item.name}
+                          </h4>
+                          {isMyAuthored && (
+                            <span className="px-2 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/30 text-gold-300 text-[10px] uppercase font-sans font-medium">
+                              Tu mensaje
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gold-300 font-sans font-medium">
+                          {item.relation} • <span className="text-white/50 font-normal">{item.createdAt}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Delete button if authored by this device */}
+                      {isMyAuthored && (
+                        <button
+                          onClick={() => handleDeleteMyMessage(item.id)}
+                          className="p-1.5 rounded-full hover:bg-roseDust-950/60 text-white/40 hover:text-roseDust-400 transition-colors cursor-pointer"
+                          title="Eliminar mi mensaje del mural"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* 1 Like per User Heart Toggle */}
+                      <button
+                        onClick={() => handleToggleLike(item.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all active:scale-90 cursor-pointer ${
+                          isLiked
+                            ? 'bg-roseDust-950/80 border-roseDust-400 text-roseDust-300 shadow-[0_0_15px_rgba(203,143,143,0.3)]'
+                            : 'bg-white/5 hover:bg-white/10 border-white/15 text-white/70'
+                        }`}
+                        title={isLiked ? 'Quitar like' : 'Dar like a este mensaje'}
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-roseDust-400 text-roseDust-400' : 'text-white/60'}`} />
+                        <span className="text-xs font-sans font-bold">{item.likes}</span>
                       </button>
-                    )}
-
-                    {/* 1 Like per User Heart Toggle */}
-                    <button
-                      onClick={() => handleToggleLike(item.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all active:scale-90 cursor-pointer ${
-                        isLiked
-                          ? 'bg-roseDust-950/80 border-roseDust-400 text-roseDust-300 shadow-[0_0_15px_rgba(203,143,143,0.3)]'
-                          : 'bg-white/5 hover:bg-white/10 border-white/15 text-white/70'
-                      }`}
-                      title={isLiked ? 'Quitar like' : 'Dar like a este mensaje'}
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-roseDust-400 text-roseDust-400' : 'text-white/60'}`} />
-                      <span className="text-xs font-sans font-bold">{item.likes}</span>
-                    </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-3 pl-4 border-l-2 border-gold-400/60">
-                  <p className="font-serif italic text-white/90 text-base leading-relaxed font-light">
-                    «{item.message}»
-                  </p>
-                </div>
-              </motion.div>
-            );
-          })
+                  <div className="mt-3 pl-4 border-l-2 border-gold-400/60">
+                    <p className="font-serif italic text-white/90 text-base leading-relaxed font-light">
+                      «{item.message}»
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
     </section>

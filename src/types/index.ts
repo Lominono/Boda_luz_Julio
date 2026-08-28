@@ -5,6 +5,7 @@ export interface GuestbookMessage {
   message: string;
   likes: number;
   createdAt: string;
+  timestamp?: number;
   avatarColor: string;
   userDeviceId?: string;
 }

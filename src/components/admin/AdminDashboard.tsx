@@ -509,49 +509,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                 Aún no hay dedicatorias publicadas.
               </div>
             ) : (
-              messages.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-5 rounded-3xl bg-black/75 backdrop-blur-md border border-white/15 shadow-md flex items-start justify-between gap-4"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-serif text-lg font-bold text-white">
-                        {item.name}
-                      </h4>
-                      <span className="text-xs text-gold-400 font-sans">
-                        • {item.relation}
+              <AnimatePresence mode="popLayout">
+                {messages.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.92, y: -10, transition: { duration: 0.25 } }}
+                    className="p-5 rounded-3xl bg-black/75 backdrop-blur-md border border-white/15 shadow-md flex items-start justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-serif text-lg font-bold text-white">
+                          {item.name}
+                        </h4>
+                        <span className="text-xs text-gold-400 font-sans">
+                          • {item.relation}
+                        </span>
+                      </div>
+                      <p className="font-serif italic text-white/90 text-base mt-2">
+                        «{item.message}»
+                      </p>
+                      <span className="text-[11px] text-white/40 font-sans mt-1 block">
+                        {item.createdAt}
                       </span>
                     </div>
-                    <p className="font-serif italic text-white/90 text-base mt-2">
-                      «{item.message}»
-                    </p>
-                    <span className="text-[11px] text-white/40 font-sans mt-1 block">
-                      {item.createdAt}
-                    </span>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-roseDust-300 text-xs font-sans">
-                      <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400" />
-                      <span>{item.likes}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-roseDust-300 text-xs font-sans">
+                        <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400" />
+                        <span>{item.likes}</span>
+                      </div>
+
+                      {/* Admin Delete Message Button */}
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setDeletingMessage(item);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-roseDust-950/80 hover:bg-roseDust-900 border border-roseDust-500/40 text-roseDust-300 text-xs font-sans transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                        title="Eliminar este mensaje del mural"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Eliminar</span>
+                      </button>
                     </div>
-
-                    {/* Admin Delete Message Button */}
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        setDeletingMessage(item);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-roseDust-950/80 hover:bg-roseDust-900 border border-roseDust-500/40 text-roseDust-300 text-xs font-sans transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
-                      title="Eliminar este mensaje del mural"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Eliminar</span>
-                    </button>
-                  </div>
-                </div>
-              ))
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             )}
           </div>
         )}
