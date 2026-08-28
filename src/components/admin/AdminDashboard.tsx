@@ -1,26 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
   CheckCircle,
   XCircle,
   MessageSquareHeart,
-  Key,
-  Plus,
-  Trash2,
-  Copy,
-  Check,
   Download,
   Search,
   ArrowLeft,
   Utensils,
   Music,
-  Sparkles,
   RefreshCw,
-  Phone
+  Phone,
+  Trash2,
+  Heart
 } from 'lucide-react';
 import { DataStore } from '../../lib/firebase';
-import { RsvpData, AccessPasscode } from '../../types';
+import { RsvpData, GuestbookMessage } from '../../types';
 import { sound } from '../../utils/soundEffects';
 
 interface AdminDashboardProps {
@@ -28,30 +23,22 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
-  const [activeTab, setActiveTab] = useState<'rsvps' | 'passcodes' | 'messages'>('rsvps');
+  const [activeTab, setActiveTab] = useState<'rsvps' | 'messages'>('rsvps');
   const [rsvps, setRsvps] = useState<RsvpData[]>([]);
-  const [passcodes, setPasscodes] = useState<AccessPasscode[]>([]);
+  const [messages, setMessages] = useState<GuestbookMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAttending, setFilterAttending] = useState<'all' | 'yes' | 'no'>('all');
-  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
-
-  // New Passcode Form State
-  const [newCodeName, setNewCodeName] = useState('');
-  const [newCodeText, setNewCodeText] = useState('');
-  const [newCodeMaxGuests, setNewCodeMaxGuests] = useState(2);
-  const [newCodeNotes, setNewCodeNotes] = useState('');
-  const [isCreatingCode, setIsCreatingCode] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [rsvpsData, passcodesData] = await Promise.all([
+      const [rsvpsData, messagesData] = await Promise.all([
         DataStore.getRsvps(),
-        DataStore.getPasscodes(),
+        DataStore.getGuestbookMessages(),
       ]);
       setRsvps(rsvpsData);
-      setPasscodes(passcodesData);
+      setMessages(messagesData);
     } catch (err) {
       console.error('Error loading admin data:', err);
     } finally {
@@ -63,767 +50,407 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
     loadData();
   }, []);
 
-  // Metrics Calculation
-  const attendingRsvps = rsvps.filter((r) => r.attending === 'yes');
-  const notAttendingRsvps = rsvps.filter((r) => r.attending === 'no');
-  const totalAttendeesSum = attendingRsvps.reduce(
-    (sum, r) => sum + (r.totalAttendeesCount || (1 + (r.additionalGuestsCount || 0))),
+  const handleDeleteRsvp = async (id: string, name: string) => {
+    if (window.confirm(`¿Estás seguro de eliminar la confirmación de ${name}?`)) {
+      sound.playClick();
+      await DataStore.deleteRsvp(id);
+      setRsvps((prev) => prev.filter((r) => r.id !== id));
+    }
+  };
+
+  // Metrics Calculations
+  const confirmedRsvps = rsvps.filter((r) => r.attending === 'yes');
+  const declinedRsvps = rsvps.filter((r) => r.attending === 'no');
+
+  // Total people = sum of (1 + additionalGuestsCount) for all attending
+  const totalAttendeesCount = confirmedRsvps.reduce(
+    (sum, r) => sum + (1 + (r.additionalGuestsCount || 0)),
     0
   );
-  const totalWithLoveMessages = rsvps.filter((r) => r.loveMessage && r.loveMessage.trim().length > 0);
 
-  // Dietary counts summary for catering
-  const dietarySummary: Record<string, number> = {};
-  attendingRsvps.forEach((r) => {
-    (r.dietaryRestrictions || []).forEach((d) => {
-      dietarySummary[d] = (dietarySummary[d] || 0) + 1;
-    });
-  });
+  const totalCompanionsCount = confirmedRsvps.reduce(
+    (sum, r) => sum + (r.additionalGuestsCount || 0),
+    0
+  );
 
   // Filtered RSVPs
   const filteredRsvps = rsvps.filter((r) => {
     const matchesSearch =
       r.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (r.companionNames || []).some((name) => name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (r.phone || '').includes(searchTerm);
+      (r.phone && r.phone.includes(searchTerm)) ||
+      (r.companionNames && r.companionNames.some((c) => c.toLowerCase().includes(searchTerm.toLowerCase())));
 
     if (filterAttending === 'yes') return matchesSearch && r.attending === 'yes';
     if (filterAttending === 'no') return matchesSearch && r.attending === 'no';
     return matchesSearch;
   });
 
-  // Create Passcode
-  const handleCreatePasscode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCodeName.trim()) return;
-
-    sound.playClick();
-    const finalCode = (newCodeText.trim() || `BODA-${Math.random().toString(36).substring(2, 7)}`).toUpperCase();
-
-    await DataStore.createPasscode({
-      code: finalCode,
-      guestName: newCodeName.trim(),
-      maxCompanions: newCodeMaxGuests,
-      notes: newCodeNotes.trim() || undefined,
-    });
-
-    setNewCodeName('');
-    setNewCodeText('');
-    setNewCodeNotes('');
-    setIsCreatingCode(false);
-    await loadData();
-    sound.playCelebration();
-  };
-
-  // Delete Passcode
-  const handleDeletePasscode = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este código de acceso?')) {
-      sound.playClick();
-      await DataStore.deletePasscode(id);
-      await loadData();
-    }
-  };
-
-  // Delete RSVP
-  const handleDeleteRsvp = async (id?: string) => {
-    if (!id) return;
-    if (confirm('¿Estás seguro de eliminar esta confirmación?')) {
-      sound.playClick();
-      await DataStore.deleteRsvp(id);
-      await loadData();
-    }
-  };
-
-  // Copy shareable WhatsApp link with code
-  const handleCopyLink = (code: string, id: string) => {
-    sound.playClick();
-    const baseUrl = window.location.origin + window.location.pathname;
-    const directLink = `${baseUrl}?code=${encodeURIComponent(code)}`;
-    navigator.clipboard.writeText(directLink);
-    setCopiedCodeId(id);
-    setTimeout(() => setCopiedCodeId(null), 2500);
-  };
-
-  // Export to CSV for catering
-  const handleExportCsv = () => {
+  // Export to CSV Function
+  const exportToCSV = () => {
     sound.playClick();
     const headers = [
-      'Nombre Principal',
+      'Nombre Completo',
       'Asistencia',
-      'Total Asistentes',
-      'Acompañantes',
+      'Acompañantes Extra',
+      'Total Plazas',
+      'Nombres Acompañantes',
       'Teléfono',
-      'Alergias / Menú',
-      'Canción Fiesta',
-      'Mensaje Bonito',
-      'Clave Usada',
+      'Alergias/Menú',
+      'Canción Pedida',
+      'Mensaje/Dedicatoria',
       'Fecha Confirmación',
     ];
 
     const rows = rsvps.map((r) => [
-      `"${r.fullName.replace(/"/g, '""')}"`,
-      r.attending === 'yes' ? 'SÍ' : 'NO',
-      r.attending === 'yes' ? (r.totalAttendeesCount || (1 + (r.additionalGuestsCount || 0))) : 0,
-      `"${(r.companionNames || []).join(', ').replace(/"/g, '""')}"`,
+      `"${r.fullName}"`,
+      r.attending === 'yes' ? 'SÍ ASISTIRÁ' : 'NO ASISTIRÁ',
+      r.additionalGuestsCount || 0,
+      r.attending === 'yes' ? 1 + (r.additionalGuestsCount || 0) : 0,
+      `"${(r.companionNames || []).join(', ')}"`,
       `"${r.phone || ''}"`,
-      `"${(r.dietaryRestrictions || []).join(', ').replace(/"/g, '""')}"`,
-      `"${(r.songRequest || '').replace(/"/g, '""')}"`,
+      `"${(r.dietaryRestrictions || []).join(', ')}"`,
+      `"${r.songRequest || ''}"`,
       `"${(r.loveMessage || '').replace(/"/g, '""')}"`,
-      `"${r.passcodeUsed || ''}"`,
-      `"${new Date(r.confirmedAt).toLocaleDateString('es-ES')}"`,
+      `"${r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('es-PY') : ''}"`,
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Invitados_Boda_Luz_y_Julio_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `Confirmados_Boda_Luz_y_Julio_${new Date().toISOString().split('T')[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-charcoal-900 font-sans pb-20">
-      {/* Top Admin Navbar */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gold-300/50 shadow-sm py-4 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onExit}
-              className="p-2 rounded-xl bg-ivory-100 hover:bg-gold-50 border border-gold-300/50 text-gold-700 transition-all active:scale-95 cursor-pointer"
-              title="Volver a la invitación"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-serif text-xl sm:text-2xl font-bold text-charcoal-900">
-                  Panel de Gestión • Boda Luz & Julio
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/40 text-gold-800 text-[11px] font-mono font-bold">
-                  ADMIN
-                </span>
-              </div>
-              <p className="text-xs text-charcoal-800/60 font-sans">
-                Control de invitados, claves de acceso y dedicatorias
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={loadData}
-              className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-white hover:bg-gold-50 border border-gold-300 text-gold-800 text-xs font-serif font-semibold shadow-sm transition-all"
-              title="Recargar datos"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Actualizar</span>
-            </button>
-
-            <button
-              onClick={handleExportCsv}
-              className="inline-flex items-center gap-1.5 py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-serif font-semibold shadow-md transition-all active:scale-95 cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>Exportar Excel / CSV</span>
-            </button>
-
-            <button
-              onClick={onExit}
-              className="py-2 px-4 rounded-xl bg-gold-500 hover:bg-gold-600 text-white text-xs font-serif font-semibold shadow-sm transition-all"
-            >
-              Ver Invitación
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-8">
-        {/* Metric Cards Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          <div className="p-5 rounded-2xl bg-white border border-gold-300/50 shadow-sm">
-            <div className="flex items-center justify-between text-gold-600 mb-2">
-              <span className="text-xs uppercase tracking-wider font-sans font-semibold text-gold-800">
-                Total Personas Confirmadas
-              </span>
-              <Users className="w-5 h-5" />
-            </div>
-            <div className="font-serif text-3xl sm:text-4xl font-bold text-charcoal-900">
-              {totalAttendeesSum}
-            </div>
-            <p className="text-[11px] text-charcoal-800/60 mt-1">
-              Sumando titulares ({attendingRsvps.length}) + acompañantes
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-gold-300/50 shadow-sm">
-            <div className="flex items-center justify-between text-emerald-600 mb-2">
-              <span className="text-xs uppercase tracking-wider font-sans font-semibold text-emerald-800">
-                Respuestas 'Sí, asistiré'
-              </span>
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <div className="font-serif text-3xl sm:text-4xl font-bold text-emerald-700">
-              {attendingRsvps.length}
-            </div>
-            <p className="text-[11px] text-charcoal-800/60 mt-1">
-              Confirmaciones positivas
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-gold-300/50 shadow-sm">
-            <div className="flex items-center justify-between text-roseDust-600 mb-2">
-              <span className="text-xs uppercase tracking-wider font-sans font-semibold text-roseDust-700">
-                No podrán asistir
-              </span>
-              <XCircle className="w-5 h-5" />
-            </div>
-            <div className="font-serif text-3xl sm:text-4xl font-bold text-roseDust-700">
-              {notAttendingRsvps.length}
-            </div>
-            <p className="text-[11px] text-charcoal-800/60 mt-1">
-              Bajas notificadas
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-gold-300/50 shadow-sm">
-            <div className="flex items-center justify-between text-gold-600 mb-2">
-              <span className="text-xs uppercase tracking-wider font-sans font-semibold text-gold-800">
-                Dedicatorias / Mensajes
-              </span>
-              <MessageSquareHeart className="w-5 h-5" />
-            </div>
-            <div className="font-serif text-3xl sm:text-4xl font-bold text-charcoal-900">
-              {totalWithLoveMessages.length}
-            </div>
-            <p className="text-[11px] text-charcoal-800/60 mt-1">
-              Mensajes bonitos recibidos
-            </p>
-          </div>
-        </div>
-
-        {/* Dietary Summary Banner */}
-        {Object.keys(dietarySummary).length > 0 && (
-          <div className="mb-8 p-4 rounded-2xl bg-ivory-100 border border-gold-300/60 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 text-gold-800 font-serif font-bold text-sm">
-              <Utensils className="w-4 h-4 text-gold-600" />
-              <span>Resumen para Catering / Cocina:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(dietarySummary).map(([diet, count]) => (
-                <span
-                  key={diet}
-                  className="px-3 py-1 rounded-full bg-white border border-gold-300 text-xs font-sans font-semibold text-charcoal-900 shadow-sm"
-                >
-                  {diet}: <strong className="text-gold-700">{count}</strong>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-gold-300/60 pb-3 mb-6 overflow-x-auto">
+    <div className="min-h-screen bg-[#0E0C0A] text-white p-4 sm:p-6 md:p-10 select-none">
+      {/* Top Header */}
+      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/15">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setActiveTab('rsvps')}
-            className={`py-2.5 px-5 rounded-xl font-serif text-sm font-semibold transition-all flex items-center gap-2 ${
-              activeTab === 'rsvps'
-                ? 'bg-gold-500 text-white shadow-sm'
-                : 'bg-white text-charcoal-800 hover:bg-gold-50 border border-gold-200'
-            }`}
+            onClick={onExit}
+            className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/20 text-white transition-all cursor-pointer"
+            title="Volver a la invitación"
           >
-            <Users className="w-4 h-4" />
-            <span>Lista de Invitados ({rsvps.length})</span>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-instrument text-3xl sm:text-4xl text-white">
+                Panel de Administración
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/40 text-gold-300 text-[10px] uppercase font-sans font-bold tracking-widest">
+                Exclusivo
+              </span>
+            </div>
+            <p className="text-xs text-white/60 font-sans mt-0.5">
+              Boda de Luz & Julio • Recepciones Luana Ko'ê Pyta, Paraguay
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 py-2 px-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/20 text-white text-xs font-sans transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Actualizar</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('passcodes')}
-            className={`py-2.5 px-5 rounded-xl font-serif text-sm font-semibold transition-all flex items-center gap-2 ${
-              activeTab === 'passcodes'
-                ? 'bg-gold-500 text-white shadow-sm'
-                : 'bg-white text-charcoal-800 hover:bg-gold-50 border border-gold-200'
+            onClick={exportToCSV}
+            className="inline-flex items-center gap-1.5 py-2 px-5 rounded-full bg-white hover:bg-gold-300 text-black text-xs font-sans font-bold shadow-lg transition-all active:scale-95 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Exportar a Excel / CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto mt-6 space-y-6">
+        {/* Metric Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Card 1: Total Plazas Confirmadas */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-black/60 border border-gold-400/40 shadow-md">
+            <div className="flex items-center justify-between text-gold-400 mb-2">
+              <span className="text-xs uppercase tracking-wider font-sans font-semibold">
+                Plazas Totales
+              </span>
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="font-instrument text-4xl sm:text-5xl font-bold text-white">
+              {totalAttendeesCount}
+            </span>
+            <p className="text-[11px] text-white/60 font-sans mt-1">
+              Personas confirmadas
+            </p>
+          </div>
+
+          {/* Card 2: Titulares Confirmados */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-black/60 border border-emerald-500/30 shadow-md">
+            <div className="flex items-center justify-between text-emerald-400 mb-2">
+              <span className="text-xs uppercase tracking-wider font-sans font-semibold">
+                Asistirán (Sí)
+              </span>
+              <CheckCircle className="w-5 h-5" />
+            </div>
+            <span className="font-instrument text-4xl sm:text-5xl font-bold text-white">
+              {confirmedRsvps.length}
+            </span>
+            <p className="text-[11px] text-white/60 font-sans mt-1">
+              +{totalCompanionsCount} acompañantes
+            </p>
+          </div>
+
+          {/* Card 3: No Asistirán */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-black/60 border border-roseDust-400/30 shadow-md">
+            <div className="flex items-center justify-between text-roseDust-300 mb-2">
+              <span className="text-xs uppercase tracking-wider font-sans font-semibold">
+                No Asistirán
+              </span>
+              <XCircle className="w-5 h-5" />
+            </div>
+            <span className="font-instrument text-4xl sm:text-5xl font-bold text-white">
+              {declinedRsvps.length}
+            </span>
+            <p className="text-[11px] text-white/60 font-sans mt-1">
+              Respuestas negativas
+            </p>
+          </div>
+
+          {/* Card 4: Total Dedicatorias */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-black/60 border border-white/20 shadow-md">
+            <div className="flex items-center justify-between text-white mb-2">
+              <span className="text-xs uppercase tracking-wider font-sans font-semibold">
+                Dedicatorias
+              </span>
+              <MessageSquareHeart className="w-5 h-5 text-gold-400" />
+            </div>
+            <span className="font-instrument text-4xl sm:text-5xl font-bold text-white">
+              {messages.length}
+            </span>
+            <p className="text-[11px] text-white/60 font-sans mt-1">
+              Mensajes recibidos
+            </p>
+          </div>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+          <button
+            onClick={() => setActiveTab('rsvps')}
+            className={`py-2 px-5 rounded-full text-xs font-sans font-semibold transition-all cursor-pointer ${
+              activeTab === 'rsvps'
+                ? 'bg-white text-black font-bold shadow-md'
+                : 'bg-white/5 text-white/70 hover:bg-white/10'
             }`}
           >
-            <Key className="w-4 h-4" />
-            <span>Creador de Claves ({passcodes.length})</span>
+            Lista de Confirmaciones ({rsvps.length})
           </button>
 
           <button
             onClick={() => setActiveTab('messages')}
-            className={`py-2.5 px-5 rounded-xl font-serif text-sm font-semibold transition-all flex items-center gap-2 ${
+            className={`py-2 px-5 rounded-full text-xs font-sans font-semibold transition-all cursor-pointer ${
               activeTab === 'messages'
-                ? 'bg-gold-500 text-white shadow-sm'
-                : 'bg-white text-charcoal-800 hover:bg-gold-50 border border-gold-200'
+                ? 'bg-white text-black font-bold shadow-md'
+                : 'bg-white/5 text-white/70 hover:bg-white/10'
             }`}
           >
-            <MessageSquareHeart className="w-4 h-4" />
-            <span>Muro de Dedicatorias ({totalWithLoveMessages.length})</span>
+            Muro de Dedicatorias ({messages.length})
           </button>
         </div>
 
-        {/* TAB 1: RSVPS LIST */}
+        {/* TAB 1: RSVPs LIST */}
         {activeTab === 'rsvps' && (
           <div className="space-y-4">
-            {/* Search and Filters Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gold-300/50">
-              <div className="relative w-full sm:w-80">
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative flex-1 w-full">
                 <input
                   type="text"
-                  placeholder="Buscar por nombre, acompañante o teléfono..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-ivory-50 border border-gold-300/70 text-xs font-sans focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  placeholder="Buscar por nombre, teléfono o acompañante..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 text-sm text-white placeholder:text-white/40"
                 />
-                <Search className="w-4 h-4 text-gold-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-white/50 absolute left-3.5 top-1/2 -translate-y-1/2" />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-xs text-charcoal-800/60 font-sans font-medium">Filtrar:</span>
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
                 <button
                   onClick={() => setFilterAttending('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-serif font-semibold transition-all ${
+                  className={`flex-1 sm:flex-none py-2 px-3.5 rounded-full text-xs font-sans transition-all cursor-pointer ${
                     filterAttending === 'all'
-                      ? 'bg-gold-500 text-white'
-                      : 'bg-ivory-100 text-charcoal-800 hover:bg-gold-50'
+                      ? 'bg-gold-500/20 border border-gold-400 text-gold-300 font-bold'
+                      : 'bg-white/5 text-white/60 hover:bg-white/10'
                   }`}
                 >
                   Todos ({rsvps.length})
                 </button>
                 <button
                   onClick={() => setFilterAttending('yes')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-serif font-semibold transition-all ${
+                  className={`flex-1 sm:flex-none py-2 px-3.5 rounded-full text-xs font-sans transition-all cursor-pointer ${
                     filterAttending === 'yes'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-ivory-100 text-emerald-800 hover:bg-emerald-50'
+                      ? 'bg-emerald-950/80 border border-emerald-400 text-emerald-300 font-bold'
+                      : 'bg-white/5 text-white/60 hover:bg-white/10'
                   }`}
                 >
-                  Asisten ({attendingRsvps.length})
+                  Confirmados ({confirmedRsvps.length})
                 </button>
                 <button
                   onClick={() => setFilterAttending('no')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-serif font-semibold transition-all ${
+                  className={`flex-1 sm:flex-none py-2 px-3.5 rounded-full text-xs font-sans transition-all cursor-pointer ${
                     filterAttending === 'no'
-                      ? 'bg-roseDust-600 text-white'
-                      : 'bg-ivory-100 text-roseDust-800 hover:bg-roseDust-50'
+                      ? 'bg-roseDust-950/80 border border-roseDust-400 text-roseDust-300 font-bold'
+                      : 'bg-white/5 text-white/60 hover:bg-white/10'
                   }`}
                 >
-                  No ({notAttendingRsvps.length})
+                  No Asisten ({declinedRsvps.length})
                 </button>
               </div>
             </div>
 
-            {/* RSVPs Table */}
-            <div className="bg-white rounded-2xl border border-gold-300/50 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-sans">
-                  <thead className="bg-ivory-100/80 border-b border-gold-200 text-gold-900 font-serif font-bold text-sm">
-                    <tr>
-                      <th className="py-3.5 px-4">Invitado Principal</th>
-                      <th className="py-3.5 px-4">Estado</th>
-                      <th className="py-3.5 px-4">Total Asistentes</th>
-                      <th className="py-3.5 px-4">Acompañantes</th>
-                      <th className="py-3.5 px-4">Alergias / Menú</th>
-                      <th className="py-3.5 px-4">Canción</th>
-                      <th className="py-3.5 px-4">Mensaje</th>
-                      <th className="py-3.5 px-4">Fecha</th>
-                      <th className="py-3.5 px-4 text-right">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gold-100">
-                    {filteredRsvps.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="py-12 text-center text-charcoal-800/50 font-serif italic text-base">
-                          No se encontraron confirmaciones con ese criterio.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredRsvps.map((rsvp) => (
-                        <tr key={rsvp.id} className="hover:bg-gold-50/40 transition-colors">
-                          {/* Name & Phone */}
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-charcoal-900 text-sm font-serif">{rsvp.fullName}</div>
-                            {rsvp.phone && (
-                              <div className="text-[11px] text-charcoal-800/60 flex items-center gap-1 mt-0.5">
-                                <Phone className="w-3 h-3 text-gold-600" />
-                                {rsvp.phone}
-                              </div>
-                            )}
-                            {rsvp.passcodeUsed && (
-                              <span className="inline-block mt-1 px-2 py-0.5 rounded bg-gold-100 text-gold-800 font-mono text-[10px]">
-                                Clave: {rsvp.passcodeUsed}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Status */}
-                          <td className="py-3.5 px-4">
-                            {rsvp.attending === 'yes' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-serif font-bold text-xs">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                Asiste
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-roseDust-100 text-roseDust-800 font-serif font-bold text-xs">
-                                <XCircle className="w-3.5 h-3.5" />
-                                No asiste
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Total Attendees */}
-                          <td className="py-3.5 px-4 text-center">
-                            {rsvp.attending === 'yes' ? (
-                              <span className="font-serif font-bold text-base text-gold-800 bg-gold-400/15 px-3 py-1 rounded-lg">
-                                {rsvp.totalAttendeesCount || (1 + (rsvp.additionalGuestsCount || 0))} pers.
-                              </span>
-                            ) : (
-                              <span className="text-charcoal-800/40">—</span>
-                            )}
-                          </td>
-
-                          {/* Companions */}
-                          <td className="py-3.5 px-4 max-w-[200px]">
-                            {rsvp.companionNames && rsvp.companionNames.length > 0 ? (
-                              <ul className="list-disc list-inside text-charcoal-800 space-y-0.5">
-                                {rsvp.companionNames.map((cName, idx) => (
-                                  <li key={idx} className="truncate">{cName}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <span className="text-charcoal-800/40">Sin acompañantes</span>
-                            )}
-                          </td>
-
-                          {/* Dietary */}
-                          <td className="py-3.5 px-4 max-w-[180px]">
-                            {rsvp.dietaryRestrictions && rsvp.dietaryRestrictions.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {rsvp.dietaryRestrictions.map((d, i) => (
-                                  <span key={i} className="px-2 py-0.5 rounded bg-roseDust-100 text-roseDust-800 text-[10px] font-medium">
-                                    {d}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-charcoal-800/40">Estándar</span>
-                            )}
-                          </td>
-
-                          {/* Song Request */}
-                          <td className="py-3.5 px-4 max-w-[160px]">
-                            {rsvp.songRequest ? (
-                              <span className="text-charcoal-800 italic flex items-center gap-1 truncate">
-                                <Music className="w-3 h-3 text-gold-600 flex-shrink-0" />
-                                {rsvp.songRequest}
-                              </span>
-                            ) : (
-                              <span className="text-charcoal-800/40">—</span>
-                            )}
-                          </td>
-
-                          {/* Message */}
-                          <td className="py-3.5 px-4 max-w-[200px]">
-                            {rsvp.loveMessage ? (
-                              <p className="italic text-gold-900 line-clamp-2" title={rsvp.loveMessage}>
-                                «{rsvp.loveMessage}»
-                              </p>
-                            ) : (
-                              <span className="text-charcoal-800/40">—</span>
-                            )}
-                          </td>
-
-                          {/* Date */}
-                          <td className="py-3.5 px-4 text-charcoal-800/60 whitespace-nowrap">
-                            {new Date(rsvp.confirmedAt).toLocaleDateString('es-ES', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </td>
-
-                          {/* Actions */}
-                          <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => handleDeleteRsvp(rsvp.id)}
-                              className="p-1.5 rounded-lg hover:bg-roseDust-100 text-roseDust-600 transition-colors"
-                              title="Eliminar confirmación"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            {/* RSVP Cards for Mobile / Table for Desktop */}
+            {filteredRsvps.length === 0 ? (
+              <div className="text-center py-12 bg-white/5 border border-white/10 rounded-3xl text-white/50 font-serif italic text-base">
+                No se encontraron confirmaciones con el criterio seleccionado.
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: PASSCODES GENERATOR */}
-        {activeTab === 'passcodes' && (
-          <div className="space-y-6">
-            {/* Header & Create Button */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gold-300/50">
-              <div>
-                <h3 className="font-serif text-2xl font-bold text-charcoal-900 flex items-center gap-2">
-                  <Key className="w-6 h-6 text-gold-600" />
-                  Creador de Claves para Invitados
-                </h3>
-                <p className="text-xs text-charcoal-800/70 font-sans mt-1">
-                  Crea claves únicas para cada familia o grupo de amigos, y comparte su enlace directo con 1 clic.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsCreatingCode(!isCreatingCode)}
-                className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-gold-500 hover:bg-gold-600 text-white font-serif font-semibold text-sm shadow-md transition-all active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{isCreatingCode ? 'Cancelar' : 'Nueva Clave de Acceso'}</span>
-              </button>
-            </div>
-
-            {/* Create Passcode Form Modal / Card */}
-            <AnimatePresence>
-              {isCreatingCode && (
-                <motion.form
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  onSubmit={handleCreatePasscode}
-                  className="bg-ivory-100 p-6 rounded-2xl border border-gold-300 space-y-4 shadow-sm"
-                >
-                  <div className="flex items-center gap-2 text-gold-800 font-serif font-bold text-lg border-b border-gold-300/60 pb-2">
-                    <Sparkles className="w-5 h-5 text-gold-600" />
-                    <span>Configurar Nueva Clave de Invitado</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs uppercase tracking-wider text-gold-800 font-sans font-semibold mb-1.5">
-                        Nombre del Invitado o Familia *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ej: Familia Morales o Carlos & Elena"
-                        value={newCodeName}
-                        onChange={(e) => setNewCodeName(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-gold-300 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs uppercase tracking-wider text-gold-800 font-sans font-semibold mb-1.5">
-                        Código de Acceso (Opcional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ej: FAMILIA-MORALES (o se generará uno)"
-                        value={newCodeText}
-                        onChange={(e) => setNewCodeText(e.target.value.toUpperCase())}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-gold-300 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-gold-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs uppercase tracking-wider text-gold-800 font-sans font-semibold mb-1.5">
-                        Máximo de Acompañantes
-                      </label>
-                      <select
-                        value={newCodeMaxGuests}
-                        onChange={(e) => setNewCodeMaxGuests(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white border border-gold-300 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold-500"
-                      >
-                        <option value={0}>Solo 1 persona (sin acompañante)</option>
-                        <option value={1}>1 acompañante (2 plazas)</option>
-                        <option value={2}>2 acompañantes (3 plazas)</option>
-                        <option value={3}>3 acompañantes (4 plazas)</option>
-                        <option value={5}>Familia numerosa (6 plazas)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-wider text-gold-800 font-sans font-semibold mb-1.5">
-                      Notas Internas para los Novios
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ej: Mesa presidencial, amigos del colegio..."
-                      value={newCodeNotes}
-                      onChange={(e) => setNewCodeNotes(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white border border-gold-300 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold-500"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingCode(false)}
-                      className="py-2 px-4 rounded-xl bg-white hover:bg-gold-50 border border-gold-300 text-charcoal-800 text-xs font-serif"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="py-2 px-6 rounded-xl bg-gold-500 hover:bg-gold-600 text-white text-xs font-serif font-bold shadow-md transition-all active:scale-95"
-                    >
-                      Guardar y Crear Clave
-                    </button>
-                  </div>
-                </motion.form>
-              )}
-            </AnimatePresence>
-
-            {/* Passcodes List Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {passcodes.map((p) => {
-                const isCopied = copiedCodeId === p.id;
-
-                return (
+            ) : (
+              <div className="space-y-3">
+                {filteredRsvps.map((rsvp) => (
                   <div
-                    key={p.id}
-                    className="bg-white p-5 rounded-2xl border border-gold-300/60 shadow-sm flex flex-col justify-between"
+                    key={rsvp.id || rsvp.fullName}
+                    className="p-5 rounded-3xl bg-black/75 backdrop-blur-md border border-white/15 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4"
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <span className="font-serif text-lg font-bold text-charcoal-900 block">
-                            {p.guestName}
-                          </span>
-                          <span className="text-[11px] text-charcoal-800/60 font-sans">
-                            Máx. {p.maxCompanions + 1} persona(s) • Creado {new Date(p.createdAt).toLocaleDateString('es-ES')}
-                          </span>
-                        </div>
-
-                        <button
-                          onClick={() => handleDeletePasscode(p.id)}
-                          className="p-1.5 rounded-lg hover:bg-roseDust-100 text-roseDust-600 transition-colors"
-                          title="Eliminar clave"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Code Badge */}
-                      <div className="my-3 p-3 rounded-xl bg-gold-50 border border-gold-300/40 flex items-center justify-between">
-                        <span className="font-mono text-base font-bold text-gold-900 tracking-wider">
-                          {p.code}
-                        </span>
-                        <span className="text-[11px] font-sans text-gold-700 bg-white px-2 py-0.5 rounded-full border border-gold-200">
-                          {p.usedCount} usos
-                        </span>
-                      </div>
-
-                      {p.notes && (
-                        <p className="text-xs text-charcoal-800/70 font-sans italic mb-3">
-                          📝 {p.notes}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Copy Shareable Link Button */}
-                    <div className="pt-3 border-t border-gold-100 flex gap-2">
-                      <button
-                        onClick={() => handleCopyLink(p.code, p.id)}
-                        className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-serif font-semibold transition-all ${
-                          isCopied
-                            ? 'bg-sage-600 text-white'
-                            : 'bg-ivory-100 hover:bg-gold-100 text-gold-800 border border-gold-300 active:scale-95'
-                        }`}
-                      >
-                        {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace WhatsApp'}</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: LOVE MESSAGES / GUESTBOOK */}
-        {activeTab === 'messages' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-gold-300/50">
-              <h3 className="font-serif text-2xl font-bold text-charcoal-900 flex items-center gap-2">
-                <MessageSquareHeart className="w-6 h-6 text-gold-600" />
-                Muro de Dedicatorias y Deseos de los Invitados
-              </h3>
-              <p className="text-xs text-charcoal-800/70 font-sans mt-1">
-                Todas las palabras de cariño enviadas por vuestros seres queridos al confirmar o en el libro de firmas.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {totalWithLoveMessages.length === 0 ? (
-                <div className="col-span-2 text-center py-12 bg-white rounded-2xl border border-gold-200">
-                  <p className="font-serif italic text-charcoal-800/60 text-lg">
-                    Aún no se han recibido mensajes bonitos.
-                  </p>
-                </div>
-              ) : (
-                totalWithLoveMessages.map((r) => (
-                  <div
-                    key={r.id}
-                    className="bg-white p-6 rounded-2xl border border-gold-300/60 shadow-sm flex flex-col justify-between relative"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-gold-200 text-gold-900 font-serif font-bold text-sm flex items-center justify-center">
-                            {r.fullName.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="font-serif text-base font-bold text-charcoal-900 block">
-                              {r.fullName}
-                            </span>
-                            <span className="text-[11px] text-charcoal-800/50 font-sans">
-                              {new Date(r.confirmedAt).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: 'long',
-                                year: 'numeric',
-                              })}
-                            </span>
-                          </div>
-                        </div>
-
-                        {r.attending === 'yes' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-serif text-[11px] font-bold">
-                            Asistirá ({r.totalAttendeesCount || (1 + (r.additionalGuestsCount || 0))} pers.)
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="font-serif text-lg sm:text-xl font-bold text-white">
+                          {rsvp.fullName}
+                        </h3>
+                        {rsvp.attending === 'yes' ? (
+                          <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-sans font-semibold">
+                            <CheckCircle className="w-3 h-3" />
+                            {1 + (rsvp.additionalGuestsCount || 0)} plaza(s) confirmada(s)
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-roseDust-100 text-roseDust-800 font-serif text-[11px] font-bold">
-                            No asiste
+                          <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-roseDust-950/80 border border-roseDust-500/50 text-roseDust-300 text-xs font-sans font-semibold">
+                            <XCircle className="w-3 h-3" />
+                            No podrá asistir
                           </span>
                         )}
                       </div>
 
-                      <div className="mt-4 p-4 rounded-xl bg-ivory-50 border-l-4 border-gold-400">
-                        <p className="font-serif italic text-charcoal-900 text-base leading-relaxed">
-                          «{r.loveMessage}»
-                        </p>
+                      {/* Companion Names */}
+                      {rsvp.companionNames && rsvp.companionNames.length > 0 && (
+                        <div className="text-xs text-gold-300/90 font-sans flex items-center gap-1.5 flex-wrap">
+                          <Users className="w-3.5 h-3.5 text-gold-400" />
+                          <span>Acompañantes:</span>
+                          <span className="text-white font-medium">
+                            {rsvp.companionNames.join(', ')}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Dietary and Song */}
+                      <div className="flex items-center gap-4 text-xs text-white/60 font-sans flex-wrap pt-0.5">
+                        {rsvp.dietaryRestrictions && rsvp.dietaryRestrictions.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Utensils className="w-3.5 h-3.5 text-gold-400" />
+                            {rsvp.dietaryRestrictions.join(', ')}
+                          </span>
+                        )}
+                        {rsvp.songRequest && (
+                          <span className="flex items-center gap-1">
+                            <Music className="w-3.5 h-3.5 text-gold-400" />
+                            {rsvp.songRequest}
+                          </span>
+                        )}
                       </div>
+
+                      {/* Love Message / Dedicatoria */}
+                      {rsvp.loveMessage && (
+                        <p className="font-serif italic text-white/80 text-sm pt-1 pl-3 border-l-2 border-gold-400/50">
+                          «{rsvp.loveMessage}»
+                        </p>
+                      )}
                     </div>
 
-                    {r.songRequest && (
-                      <div className="mt-4 pt-3 border-t border-gold-100 flex items-center gap-1.5 text-xs text-gold-800 font-sans">
-                        <Music className="w-3.5 h-3.5 text-gold-600" />
-                        <span>Canción sugerida: <strong>{r.songRequest}</strong></span>
-                      </div>
-                    )}
+                    {/* Actions & Phone */}
+                    <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-white/10 justify-between md:justify-end">
+                      {rsvp.phone && (
+                        <a
+                          href={`https://wa.me/${rsvp.phone.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-sans font-medium transition-all"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      )}
+
+                      <button
+                        onClick={() => handleDeleteRsvp(rsvp.id!, rsvp.fullName)}
+                        className="p-2 rounded-full hover:bg-roseDust-950/60 text-white/40 hover:text-roseDust-400 transition-colors cursor-pointer"
+                        title="Eliminar confirmación"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: MESSAGES */}
+        {activeTab === 'messages' && (
+          <div className="space-y-3">
+            {messages.length === 0 ? (
+              <div className="text-center py-12 bg-white/5 border border-white/10 rounded-3xl text-white/50 font-serif italic text-base">
+                Aún no hay dedicatorias publicadas.
+              </div>
+            ) : (
+              messages.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-5 rounded-3xl bg-black/75 backdrop-blur-md border border-white/15 shadow-md flex items-start justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-serif text-lg font-bold text-white">
+                        {item.name}
+                      </h4>
+                      <span className="text-xs text-gold-400 font-sans">
+                        • {item.relation}
+                      </span>
+                    </div>
+                    <p className="font-serif italic text-white/90 text-base mt-2">
+                      «{item.message}»
+                    </p>
+                    <span className="text-[11px] text-white/40 font-sans mt-1 block">
+                      {item.createdAt}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-roseDust-300 text-xs font-sans">
+                    <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400" />
+                    <span>{item.likes} likes</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

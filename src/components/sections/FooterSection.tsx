@@ -6,12 +6,12 @@ export const FooterSection: React.FC = () => {
   return (
     <footer className="pt-16 pb-28 px-4 text-center border-t border-white/10 bg-black/90 backdrop-blur-md text-white">
       <div className="max-w-md mx-auto">
-        {/* Monogram */}
-        <div className="w-16 h-16 rounded-full border border-white/20 bg-white p-2.5 flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.2)] mx-auto mb-4">
+        {/* Monogram without solid white box */}
+        <div className="w-18 h-18 sm:w-20 sm:h-20 mx-auto mb-4 flex items-center justify-center filter drop-shadow-[0_0_15px_rgba(212,175,55,0.4)]">
           <img
             src="/monograma-lj.png"
             alt="Monograma Luz y Julio"
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain invert brightness-200"
           />
         </div>
 
@@ -36,9 +36,17 @@ export const FooterSection: React.FC = () => {
           «Cordón de tres dobleces no se rompe pronto» • Eclesiastés 4:12 <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400 inline" />
         </p>
 
-        {/* Small Discreet Credits */}
-        <div className="pt-2 text-[11px] text-white/40 uppercase tracking-widest font-sans">
-          Diseñado & Creado con amor por <span className="text-white/70 font-semibold">JuanFe</span>
+        {/* Discreet Credits with GitHub Link */}
+        <div className="pt-2 text-[11px] text-white/50 uppercase tracking-widest font-sans">
+          Diseñado & Creado con amor por{' '}
+          <a
+            href="https://github.com/Lominono"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gold-300 hover:text-white underline underline-offset-2 font-semibold transition-colors"
+          >
+            oreganos
+          </a>
         </div>
       </div>
     </footer>

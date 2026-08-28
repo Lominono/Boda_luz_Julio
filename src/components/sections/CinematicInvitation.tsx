@@ -81,11 +81,11 @@ export const CinematicInvitation: React.FC = () => {
         transition={{ duration: 0.8 }}
         className="text-center mb-4"
       >
-        <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full border border-white/20 bg-white p-2.5 backdrop-blur-md flex items-center justify-center shadow-[0_0_30px_rgba(212,175,55,0.3)] mx-auto">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto flex items-center justify-center filter drop-shadow-[0_0_15px_rgba(212,175,55,0.4)]">
           <img
             src="/monograma-lj.png"
             alt="Monograma Luz y Julio"
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain invert brightness-200"
           />
         </div>
         <p className="text-[11px] uppercase tracking-[0.3em] text-gold-400 font-sans mt-2 font-medium">
