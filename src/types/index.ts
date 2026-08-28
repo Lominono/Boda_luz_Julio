@@ -6,6 +6,7 @@ export interface GuestbookMessage {
   likes: number;
   createdAt: string;
   avatarColor: string;
+  userDeviceId?: string;
 }
 
 export interface RsvpData {
@@ -23,6 +24,7 @@ export interface RsvpData {
   loveMessage?: string;         // Optional dedication to Luz & Julio
   passcodeUsed?: string;
   confirmedAt: string;
+  userDeviceId?: string;        // Persistent identifier for this browser/user
 }
 
 export interface AccessPasscode {

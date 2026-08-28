@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti';
 import { Sparkles, Heart, Send, MessageSquareHeart, Trash2 } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
 import { GuestbookMessage } from '../../types';
-import { DataStore } from '../../lib/firebase';
+import { DataStore, getUserDeviceId } from '../../lib/firebase';
 
 const LIKED_STORAGE_KEY = 'boda_luz_julio_user_likes_v1';
 const AUTHORED_STORAGE_KEY = 'boda_luz_julio_my_authored_msgs_v1';
@@ -19,11 +19,13 @@ export const GuestbookSection: React.FC = () => {
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [myAuthoredIds, setMyAuthoredIds] = useState<Set<string>>(new Set());
 
+  const currentDeviceId = getUserDeviceId();
+
   const loadMessages = async () => {
     const list = await DataStore.getGuestbookMessages();
     setMessages(list);
 
-    // Load liked IDs
+    // Load liked IDs & authored IDs
     try {
       const storedLikes = localStorage.getItem(LIKED_STORAGE_KEY);
       if (storedLikes) {
@@ -57,15 +59,16 @@ export const GuestbookSection: React.FC = () => {
       name: name.trim(),
       relation: relation.trim() || 'Invitado',
       message: messageText.trim(),
-      likes: 1, // Realistic initial like count
+      likes: 1,
       createdAt: 'Justo ahora',
       avatarColor: randomColor,
+      userDeviceId: currentDeviceId,
     };
 
     await DataStore.saveGuestbookMessage(newMessage);
     setMessages((prev) => [newMessage, ...prev]);
 
-    // Save to authored IDs so this user can delete it if they change their mind
+    // Save to authored IDs for this device
     const updatedAuthored = new Set(myAuthoredIds);
     updatedAuthored.add(newMessage.id);
     setMyAuthoredIds(updatedAuthored);
@@ -274,7 +277,9 @@ export const GuestbookSection: React.FC = () => {
         ) : (
           messages.map((item) => {
             const isLiked = likedIds.has(item.id);
-            const isMyAuthored = myAuthoredIds.has(item.id);
+            const isMyAuthored =
+              (item.userDeviceId && item.userDeviceId === currentDeviceId) ||
+              myAuthoredIds.has(item.id);
 
             return (
               <motion.div
@@ -297,7 +302,7 @@ export const GuestbookSection: React.FC = () => {
                           {item.name}
                         </h4>
                         {isMyAuthored && (
-                          <span className="px-2 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/30 text-gold-300 text-[10px] uppercase font-sans">
+                          <span className="px-2 py-0.5 rounded-full bg-gold-400/20 border border-gold-400/30 text-gold-300 text-[10px] uppercase font-sans font-medium">
                             Tu mensaje
                           </span>
                         )}

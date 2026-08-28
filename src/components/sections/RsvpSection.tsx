@@ -18,13 +18,15 @@ import {
 } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
 import { RsvpData, AccessPasscode } from '../../types';
-import { DataStore } from '../../lib/firebase';
+import { DataStore, getUserDeviceId } from '../../lib/firebase';
 
 interface RsvpSectionProps {
   currentPasscode?: AccessPasscode;
 }
 
 export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => {
+  const currentDeviceId = getUserDeviceId();
+
   const [formData, setFormData] = useState<RsvpData>({
     fullName: '',
     phone: '',
@@ -39,6 +41,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
     loveMessage: '',
     passcodeUsed: currentPasscode?.code || 'LUZYJULIO',
     confirmedAt: '',
+    userDeviceId: currentDeviceId,
   });
 
   const [submitted, setSubmitted] = useState(false);
@@ -47,22 +50,34 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
 
   useEffect(() => {
     const checkStatus = async () => {
+      let activeRsvp: RsvpData | null = null;
       const savedRsvp = localStorage.getItem('wedding_rsvp_luz_julio_v2');
+
       if (savedRsvp) {
         try {
-          const parsed = JSON.parse(savedRsvp);
-          setFormData(parsed);
-
-          // Check if admin cancelled this RSVP
-          const cancellation = await DataStore.checkCancellation(parsed.phone || parsed.fullName);
-          if (cancellation?.isCancelled) {
-            setCancellationNotice(cancellation);
-            setSubmitted(false);
-          } else {
-            setSubmitted(true);
-          }
+          activeRsvp = JSON.parse(savedRsvp);
         } catch {
           // Ignore
+        }
+      }
+
+      // If not in local storage, check in DataStore by userDeviceId
+      if (!activeRsvp) {
+        activeRsvp = await DataStore.getRsvpByUserDevice(currentDeviceId);
+      }
+
+      if (activeRsvp) {
+        setFormData({ ...activeRsvp, userDeviceId: currentDeviceId });
+
+        // Check if admin cancelled this RSVP
+        const cancellation = await DataStore.checkCancellation(
+          activeRsvp.phone || activeRsvp.fullName || currentDeviceId
+        );
+        if (cancellation?.isCancelled) {
+          setCancellationNotice(cancellation);
+          setSubmitted(false);
+        } else {
+          setSubmitted(true);
         }
       } else if (currentPasscode?.guestName && currentPasscode.guestName !== 'Invitación General') {
         setFormData((prev) => ({ ...prev, fullName: currentPasscode.guestName }));
@@ -70,7 +85,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
     };
 
     checkStatus();
-  }, [currentPasscode]);
+  }, [currentPasscode, currentDeviceId]);
 
   const handleDietaryToggle = (option: string) => {
     sound.playClick();

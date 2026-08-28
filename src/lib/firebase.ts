@@ -11,6 +11,17 @@ import {
 } from 'firebase/firestore';
 import { RsvpData, GuestbookMessage, AccessPasscode } from '../types';
 
+// Persistent Unique Device User ID generator
+export const getUserDeviceId = (): string => {
+  const KEY = 'boda_luz_julio_user_device_uuid_v1';
+  let deviceId = localStorage.getItem(KEY);
+  if (!deviceId) {
+    deviceId = `dev_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem(KEY, deviceId);
+  }
+  return deviceId;
+};
+
 // Firebase configuration from environment variables (for Vercel / local .env)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDNsIVtzu2qdhls3ej3KM2cyKa5yJ-WMqU",
@@ -80,12 +91,23 @@ export const DataStore = {
     return [];
   },
 
+  async getRsvpByUserDevice(deviceId: string): Promise<RsvpData | null> {
+    if (!deviceId) return null;
+    const rsvps = await this.getRsvps();
+    const found = rsvps.find((r) => r.userDeviceId === deviceId);
+    return found || null;
+  },
+
   async saveRsvp(rsvp: RsvpData): Promise<boolean> {
     const existing = await this.getRsvps();
+    const userDeviceId = rsvp.userDeviceId || getUserDeviceId();
+
     const newRsvp: RsvpData = {
       ...rsvp,
       id: rsvp.id || `rsvp-${Date.now()}`,
+      userDeviceId: userDeviceId,
     };
+
     const updated = [
       newRsvp,
       ...existing.filter(
@@ -104,6 +126,7 @@ export const DataStore = {
         likes: 1,
         createdAt: new Date().toLocaleDateString('es-PY', { day: '2-digit', month: 'short' }),
         avatarColor: '#C5A059',
+        userDeviceId: userDeviceId,
       });
     }
 
@@ -116,7 +139,7 @@ export const DataStore = {
     }
 
     // Clear any previous cancellation if the user is re-submitting
-    await this.clearCancellation(rsvp.phone || rsvp.fullName);
+    await this.clearCancellation(rsvp.phone || rsvp.fullName || userDeviceId);
 
     return true;
   },
@@ -124,7 +147,7 @@ export const DataStore = {
   async deleteRsvp(
     id: string,
     reason: string = 'Cancelación solicitada por administración',
-    guestInfo?: { fullName: string; phone?: string }
+    guestInfo?: { fullName: string; phone?: string; userDeviceId?: string }
   ): Promise<void> {
     const existing = await this.getRsvps();
     const target = existing.find((item) => item.id === id);
@@ -133,14 +156,16 @@ export const DataStore = {
 
     const name = guestInfo?.fullName || target?.fullName || '';
     const phone = guestInfo?.phone || target?.phone || '';
+    const userDeviceId = guestInfo?.userDeviceId || target?.userDeviceId || '';
 
     // Record cancellation reason
-    const cancellationKey = (phone || name || id).trim().toLowerCase();
+    const cancellationKey = (phone || name || userDeviceId || id).trim().toLowerCase();
     const cancellationData = {
       id: `cancel-${id}`,
       rsvpId: id,
       fullName: name,
       phone: phone,
+      userDeviceId: userDeviceId,
       reason: reason,
       cancelledAt: new Date().toISOString(),
     };
@@ -150,6 +175,9 @@ export const DataStore = {
       const stored = localStorage.getItem('wedding_rsvp_cancellations');
       const list = stored ? JSON.parse(stored) : {};
       list[cancellationKey] = cancellationData;
+      if (userDeviceId) list[userDeviceId.toLowerCase()] = cancellationData;
+      if (phone) list[phone.toLowerCase()] = cancellationData;
+      if (name) list[name.toLowerCase()] = cancellationData;
       localStorage.setItem('wedding_rsvp_cancellations', JSON.stringify(list));
     } catch {
       // Ignore
@@ -193,7 +221,8 @@ export const DataStore = {
           const data = d.data();
           if (
             (data.phone && data.phone.trim().toLowerCase() === cleanKey) ||
-            (data.fullName && data.fullName.trim().toLowerCase() === cleanKey)
+            (data.fullName && data.fullName.trim().toLowerCase() === cleanKey) ||
+            (data.userDeviceId && data.userDeviceId.trim().toLowerCase() === cleanKey)
           ) {
             foundReason = data.reason;
           }
@@ -293,7 +322,7 @@ export const DataStore = {
   async validatePasscode(enteredCode: string): Promise<{ valid: boolean; isAdmin: boolean; passcode?: AccessPasscode }> {
     const clean = enteredCode.trim();
 
-    // Check Master Admin Code (case-sensitive and fallback)
+    // Check Master Admin Code
     if (clean === 'f32ZSJNr' || clean.toUpperCase() === 'F32ZSJNR') {
       return { valid: true, isAdmin: true };
     }
@@ -325,7 +354,7 @@ export const DataStore = {
         querySnapshot.forEach((docSnap) => {
           messages.push(docSnap.data() as GuestbookMessage);
         });
-        if (messages.length > 0) return messages;
+        return messages;
       } catch (err) {
         console.warn('Firebase guestbook fetch error:', err);
       }
@@ -344,7 +373,7 @@ export const DataStore = {
 
   async saveGuestbookMessage(msg: GuestbookMessage): Promise<void> {
     const existing = await this.getGuestbookMessages();
-    const updated = [msg, ...existing];
+    const updated = [msg, ...existing.filter((m) => m.id !== msg.id)];
     localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(updated));
 
     if (db) {
