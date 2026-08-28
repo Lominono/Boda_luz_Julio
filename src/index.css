@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    overflow-x: hidden;
+    background-color: #000000;
+    color: #FFFFFF;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.font-instrument {
+  font-family: 'Instrument Serif', serif;
+}
+
+/* Custom Gold Foil Shimmer */
+.gold-shimmer {
+  background: linear-gradient(
+    110deg,
+    #B38728 0%,
+    #FBF5B7 25%,
+    #DAA520 50%,
+    #AA771C 75%,
+    #FBF5B7 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Glassmorphism Luxury */
+.glass-luxury {
+  background: rgba(20, 17, 14, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 89, 0.25);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0908;
+}
+::-webkit-scrollbar-thumb {
+  background: #3A3228;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C5A059;
+}
