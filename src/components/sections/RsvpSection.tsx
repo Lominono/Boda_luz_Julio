@@ -345,7 +345,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                   required
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  placeholder="Ej: Laura Benítez"
+                  placeholder="Tu nombre y apellidos"
                   className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-base"
                 />
               </div>
@@ -366,7 +366,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                         type="tel"
                         value={formData.phone || ''}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+595 981 000 000"
+                        placeholder="Número de teléfono de contacto"
                         className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-base"
                       />
                     </div>
@@ -423,7 +423,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                             required
                             value={formData.companionNames[index] || ''}
                             onChange={(e) => handleCompanionNameChange(index, e.target.value)}
-                            placeholder={`Nombre y apellido del acompañante ${index + 1}`}
+                            placeholder={`Nombre completo del acompañante ${index + 1}`}
                             className="flex-1 px-3.5 py-2.5 rounded-lg bg-white/5 border border-white/15 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white text-sm placeholder:text-white/40"
                           />
                         </div>
@@ -478,7 +478,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                           type="text"
                           value={formData.dietaryOther || ''}
                           onChange={(e) => setFormData({ ...formData, dietaryOther: e.target.value })}
-                          placeholder="Especifica tu requerimiento (Ej: Lactosa, mariscos, vegetariano, etc.)"
+                          placeholder="Indica tus alergias o requerimiento especial de menú"
                           className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-gold-400/40 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-sm"
                         />
                       </motion.div>
@@ -495,7 +495,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                       type="text"
                       value={formData.songRequest || ''}
                       onChange={(e) => setFormData({ ...formData, songRequest: e.target.value })}
-                      placeholder="Título y artista"
+                      placeholder="Título de la canción y artista"
                       className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-base"
                     />
                   </div>
@@ -517,7 +517,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                   rows={3}
                   value={formData.loveMessage || ''}
                   onChange={(e) => setFormData({ ...formData, loveMessage: e.target.value })}
-                  placeholder="Escribe tus bendiciones, felicitaciones o un mensaje especial para los novios..."
+                  placeholder="Escribe tus bendiciones y mejores deseos para los novios..."
                   className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-base"
                 />
               </div>

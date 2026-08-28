@@ -49,14 +49,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
       setRsvps(rsvpsData);
       setMessages(messagesData);
     } catch (err) {
-      console.error('Error loading admin data:', err);
+      console.error('Error refreshing admin data:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    setIsLoading(true);
+    const unsubscribeRsvps = DataStore.subscribeToRsvps((list) => {
+      setRsvps(list);
+      setIsLoading(false);
+    });
+
+    const unsubscribeMessages = DataStore.subscribeToGuestbook((list) => {
+      setMessages(list);
+    });
+
+    return () => {
+      unsubscribeRsvps();
+      unsubscribeMessages();
+    };
   }, []);
 
   const handleOpenDeleteModal = (rsvp: RsvpData) => {

@@ -8,6 +8,7 @@ import {
   doc,
   query,
   orderBy,
+  onSnapshot,
 } from 'firebase/firestore';
 import { RsvpData, GuestbookMessage, AccessPasscode } from '../types';
 
@@ -64,6 +65,66 @@ const STORAGE_KEYS = {
 };
 
 export const DataStore = {
+  // Real-time listener for RSVPs
+  subscribeToRsvps(callback: (rsvps: RsvpData[]) => void): () => void {
+    if (db) {
+      try {
+        const q = query(collection(db, 'rsvps'), orderBy('confirmedAt', 'desc'));
+        const unsubscribe = onSnapshot(
+          q,
+          (querySnapshot) => {
+            const list: RsvpData[] = [];
+            querySnapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as RsvpData);
+            });
+            localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(list));
+            callback(list);
+          },
+          (error) => {
+            console.warn('Firestore realtime RSVPs subscription fallback to cache:', error);
+            this.getRsvps().then(callback);
+          }
+        );
+        return unsubscribe;
+      } catch (err) {
+        console.warn('Real-time subscription init error:', err);
+      }
+    }
+
+    this.getRsvps().then(callback);
+    return () => {};
+  },
+
+  // Real-time listener for Guestbook Messages
+  subscribeToGuestbook(callback: (messages: GuestbookMessage[]) => void): () => void {
+    if (db) {
+      try {
+        const q = query(collection(db, 'guestbook_messages'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(
+          q,
+          (querySnapshot) => {
+            const list: GuestbookMessage[] = [];
+            querySnapshot.forEach((docSnap) => {
+              list.push(docSnap.data() as GuestbookMessage);
+            });
+            localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(list));
+            callback(list);
+          },
+          (error) => {
+            console.warn('Firestore realtime Guestbook subscription fallback to cache:', error);
+            this.getGuestbookMessages().then(callback);
+          }
+        );
+        return unsubscribe;
+      } catch (err) {
+        console.warn('Real-time subscription init error:', err);
+      }
+    }
+
+    this.getGuestbookMessages().then(callback);
+    return () => {};
+  },
+
   // RSVPs
   async getRsvps(): Promise<RsvpData[]> {
     if (db) {
@@ -74,7 +135,10 @@ export const DataStore = {
         querySnapshot.forEach((docSnap) => {
           rsvps.push(docSnap.data() as RsvpData);
         });
-        if (rsvps.length > 0) return rsvps;
+        if (rsvps.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
+          return rsvps;
+        }
       } catch (err) {
         console.warn('Firebase Firestore fetch error, using local storage fallback:', err);
       }
@@ -354,6 +418,7 @@ export const DataStore = {
         querySnapshot.forEach((docSnap) => {
           messages.push(docSnap.data() as GuestbookMessage);
         });
+        localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(messages));
         return messages;
       } catch (err) {
         console.warn('Firebase guestbook fetch error:', err);

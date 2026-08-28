@@ -21,9 +21,11 @@ export const GuestbookSection: React.FC = () => {
 
   const currentDeviceId = getUserDeviceId();
 
-  const loadMessages = async () => {
-    const list = await DataStore.getGuestbookMessages();
-    setMessages(list);
+  useEffect(() => {
+    // Real-time Firestore sync
+    const unsubscribe = DataStore.subscribeToGuestbook((list) => {
+      setMessages(list);
+    });
 
     // Load liked IDs & authored IDs
     try {
@@ -38,10 +40,8 @@ export const GuestbookSection: React.FC = () => {
     } catch {
       // Ignore
     }
-  };
 
-  useEffect(() => {
-    loadMessages();
+    return unsubscribe;
   }, []);
 
   const handleAddMessage = async (e: React.FormEvent) => {
@@ -216,7 +216,7 @@ export const GuestbookSection: React.FC = () => {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Ej: Familia Morales o Daniel"
+                      placeholder="Tu nombre completo"
                       className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-sm"
                     />
                   </div>
@@ -229,7 +229,7 @@ export const GuestbookSection: React.FC = () => {
                       type="text"
                       value={relation}
                       onChange={(e) => setRelation(e.target.value)}
-                      placeholder="Ej: Amigos, Familia, Primos..."
+                      placeholder="Parentesco o relación con los novios"
                       className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-sm"
                     />
                   </div>
@@ -244,7 +244,7 @@ export const GuestbookSection: React.FC = () => {
                     rows={3}
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
-                    placeholder="Escribe aquí tus mejores deseos para los novios..."
+                    placeholder="Escribe tus bendiciones y mejores deseos para los novios..."
                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400 font-serif text-white placeholder:text-white/40 text-sm"
                   />
                 </div>
