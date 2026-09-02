@@ -159,6 +159,29 @@ export const DataStore = {
     };
   },
 
+  // Check connection status
+  async checkConnection(): Promise<{ status: 'connected' | 'permission-denied' | 'error' | 'unconfigured'; details?: string }> {
+    if (!db) {
+      return { status: 'unconfigured', details: 'Faltan credenciales en .env' };
+    }
+    try {
+      await getDocs(collection(db, 'rsvps'));
+      return { status: 'connected', details: 'Conexión activa con Cloud Firestore' };
+    } catch (err: any) {
+      const isPermission =
+        err?.code === 'permission-denied' ||
+        String(err?.message || '').toLowerCase().includes('permission') ||
+        String(err).toLowerCase().includes('permission');
+      if (isPermission) {
+        return {
+          status: 'permission-denied',
+          details: 'Permisos insuficientes: se deben publicar las Reglas en Firebase Console',
+        };
+      }
+      return { status: 'error', details: err?.message || 'Error de conexión con Firebase' };
+    }
+  },
+
   // RSVPs
   async getRsvps(): Promise<RsvpData[]> {
     if (db) {
@@ -168,15 +191,13 @@ export const DataStore = {
         querySnapshot.forEach((docSnap) => {
           rsvps.push(docSnap.data() as RsvpData);
         });
-        if (rsvps.length > 0) {
-          rsvps.sort((a, b) => {
-            const timeA = new Date(a.confirmedAt || 0).getTime();
-            const timeB = new Date(b.confirmedAt || 0).getTime();
-            return timeB - timeA;
-          });
-          localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
-          return rsvps;
-        }
+        rsvps.sort((a, b) => {
+          const timeA = new Date(a.confirmedAt || 0).getTime();
+          const timeB = new Date(b.confirmedAt || 0).getTime();
+          return timeB - timeA;
+        });
+        localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(rsvps));
+        return rsvps;
       } catch (err) {
         console.warn('Firebase Firestore fetch error, using local storage fallback:', err);
       }

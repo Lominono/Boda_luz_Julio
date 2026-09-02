@@ -32,6 +32,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAttending, setFilterAttending] = useState<'all' | 'yes' | 'no'>('all');
+  const [dbStatus, setDbStatus] = useState<{
+    status: 'checking' | 'connected' | 'permission-denied' | 'error' | 'unconfigured';
+    details?: string;
+  }>({ status: 'checking' });
 
   // Deletion Modal with Reason State
   const [deletingRsvp, setDeletingRsvp] = useState<RsvpData | null>(null);
@@ -43,12 +47,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [rsvpsData, messagesData] = await Promise.all([
+      const [rsvpsData, messagesData, status] = await Promise.all([
         DataStore.getRsvps(),
         DataStore.getGuestbookMessages(),
+        DataStore.checkConnection(),
       ]);
       setRsvps(rsvpsData);
       setMessages(messagesData);
+      setDbStatus(status);
     } catch (err) {
       console.error('Error refreshing admin data:', err);
     } finally {
@@ -58,6 +64,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
 
   useEffect(() => {
     setIsLoading(true);
+    DataStore.checkConnection().then(setDbStatus);
+
     const unsubscribeRsvps = DataStore.subscribeToRsvps((list) => {
       setRsvps(list);
       setIsLoading(false);
@@ -228,9 +236,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                 Exclusivo
               </span>
             </div>
-            <p className="text-xs text-white/60 font-sans mt-0.5">
-              Boda de Luz & Julio • Recepciones Luana Ko'ê Pyta
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-white/60 font-sans">
+                Boda de Luz & Julio • Recepciones Luana Ko'ê Pyta
+              </p>
+              <span className="text-white/30">•</span>
+              {dbStatus.status === 'connected' && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Firebase Cloud Activo
+                </span>
+              )}
+              {dbStatus.status === 'permission-denied' && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-medium">
+                  <AlertTriangle className="w-3 h-3 text-amber-400" />
+                  Firebase: Reglas Pendientes
+                </span>
+              )}
+              {dbStatus.status === 'checking' && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/20 text-white/50 text-[11px]">
+                  Verificando conexión...
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -253,6 +281,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
           </button>
         </div>
       </div>
+
+      {/* Permission Denied Alert Banner if Firebase Rules are locked */}
+      {dbStatus.status === 'permission-denied' && (
+        <div className="max-w-6xl mx-auto mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-200/90 leading-relaxed font-sans">
+            <p className="font-semibold text-amber-300 text-sm">
+              Acción requerida en Firebase Console: Publicar Reglas de Firestore
+            </p>
+            <p className="mt-1">
+              Las credenciales de tu proyecto <code className="bg-black/40 px-1.5 py-0.5 rounded text-amber-300 font-mono">kairo-3d31d</code> son correctas, pero las reglas de seguridad de Firestore están bloqueando el acceso público.
+            </p>
+            <p className="mt-1">
+              <strong>Solución (1 minuto):</strong> Entra a <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="underline font-bold text-white hover:text-amber-300">Firebase Console</a> ➔ selecciona tu proyecto ➔ <strong>Firestore Database</strong> ➔ pestaña <strong>Reglas (Rules)</strong> ➔ pega <code className="bg-black/40 px-1.5 py-0.5 rounded text-amber-300 font-mono">allow read, write: if true;</code> y haz clic en <strong>Publicar</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto mt-6 space-y-6">
         {/* Metric Cards */}
