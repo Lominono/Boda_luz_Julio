@@ -1,7 +1,6 @@
 import React from 'react';
-import { Heart, Lock } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import CalendarExport from './CalendarExport';
-import { sound } from '../../utils/soundEffects';
 
 export const FooterSection: React.FC = () => {
   return (
@@ -37,8 +36,8 @@ export const FooterSection: React.FC = () => {
           «Cordón de tres dobleces no se rompe pronto» • Eclesiastés 4:12 <Heart className="w-3.5 h-3.5 fill-roseDust-400 text-roseDust-400 inline" />
         </p>
 
-        {/* Discreet Credits with GitHub Link and Admin Access */}
-        <div className="pt-3 flex flex-col items-center gap-3">
+        {/* Discreet Credits with GitHub Link */}
+        <div className="pt-3 flex flex-col items-center">
           <div className="text-[11px] text-white/50 uppercase tracking-widest font-sans">
             Hecho por{' '}
             <a
@@ -50,19 +49,6 @@ export const FooterSection: React.FC = () => {
               oreganos
             </a>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              window.location.hash = 'admin';
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] text-white/40 hover:text-gold-300 transition-all tracking-wider uppercase font-sans cursor-pointer active:scale-95"
-            title="Acceso exclusivo para los novios y administradores"
-          >
-            <Lock className="w-3 h-3 text-gold-400/70" />
-            <span>Acceso Privado</span>
-          </button>
         </div>
       </div>
     </footer>
