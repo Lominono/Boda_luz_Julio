@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   RotateCcw,
   Calendar,
-  Share2,
   Minus,
   Plus,
   MapPin,
@@ -22,11 +21,13 @@ import {
   Edit3,
   Wheat,
   Leaf,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
 import { RsvpData, AccessPasscode } from '../../types';
 import { DataStore, getUserDeviceId } from '../../lib/firebase';
+import { openSmartCalendar, isAppleDevice } from '../../utils/calendar';
 
 interface RsvpSectionProps {
   currentPasscode?: AccessPasscode;
@@ -178,25 +179,6 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
     }
   };
 
-  // WhatsApp confirmation share link
-  const getWhatsAppShareUrl = () => {
-    const total = 1 + formData.additionalGuestsCount;
-    const text = formData.attending === 'yes'
-      ? `¡Hola Luz y Julio! Les escribo para confirmar que asistiré a su boda con ${total} ${total === 1 ? 'persona' : 'personas'} (${formData.fullName}). ¡Nos vemos el 10 de Octubre en Recepciones Luana!`
-      : `¡Hola Luz y Julio! Con mucho cariño les agradezco la invitación a su boda. Con pena no podré acompañarlos presencialmente, pero les deseo lo mejor en esta nueva etapa. Un abrazo enorme (${formData.fullName}).`;
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
-  };
-
-  // Google Calendar Link
-  const getGoogleCalendarUrl = () => {
-    const title = encodeURIComponent('Boda de Luz & Julio');
-    const details = encodeURIComponent('Celebración de la boda de Luz & Julio en Recepciones Luana Ko\'ê Pyta.');
-    const location = encodeURIComponent('Recepciones Luana, Ko\'ê Pyta, Paraguay');
-    // 10 de Octubre 2026, 17:00 a 23:59 PYT (UTC-3)
-    const dates = '20261010T200000Z/20261011T040000Z';
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
-  };
-
   const scrollToGuestbook = () => {
     sound.playClick();
     const elem = document.getElementById('dedicatorias');
@@ -318,7 +300,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                   <div className="space-y-2 text-xs text-white/80 font-sans">
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-gold-400 shrink-0" />
-                      <span>Sábado, 10 de Octubre de 2026 • 17:00 hs (Puntual)</span>
+                      <span>Viernes, 9 de Octubre de 2026 • 11:30 AM (Puntual)</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-gold-400 shrink-0" />
@@ -334,31 +316,35 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                 </div>
               )}
 
-              {/* Action buttons: WhatsApp 1-tap & Add to Calendar */}
+              {/* Action buttons: Smart Calendar (Apple on iOS / Google on Android) & Maps */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mt-6">
+                {formData.attending === 'yes' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      openSmartCalendar();
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-white hover:bg-gold-300 text-black font-serif text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4 text-gold-600" />
+                    <span>
+                      {isAppleDevice() ? 'Añadir a Apple Calendar (.ics)' : 'Añadir a Google Calendar'}
+                    </span>
+                  </button>
+                )}
+
                 <a
-                  href={getWhatsAppShareUrl()}
+                  href="https://maps.app.goo.gl/GQ2QPpmfaAfmGNV17"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => sound.playClick()}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-6 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-sans text-xs font-bold tracking-wide transition-all shadow-md active:scale-95 cursor-pointer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-serif text-xs font-semibold transition-all active:scale-95 cursor-pointer"
                 >
-                  <Share2 className="w-4 h-4" />
-                  <span>Avisar a los Novios por WhatsApp</span>
+                  <MapPin className="w-3.5 h-3.5 text-gold-400" />
+                  <span>Ver Lugar en Maps</span>
+                  <ExternalLink className="w-3 h-3 text-white/50" />
                 </a>
-
-                {formData.attending === 'yes' && (
-                  <a
-                    href={getGoogleCalendarUrl()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => sound.playClick()}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-5 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-gold-400" />
-                    <span>Guardar en Calendario</span>
-                  </a>
-                )}
               </div>
 
               {/* Dedicatorias invite */}

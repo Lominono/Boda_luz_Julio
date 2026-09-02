@@ -15,7 +15,8 @@ import {
   Trash2,
   Heart,
   AlertTriangle,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import { DataStore } from '../../lib/firebase';
 import { RsvpData, GuestbookMessage } from '../../types';
@@ -148,6 +149,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
 
     const metaHeader = [
       `"REPORTE OFICIAL DE CONFIRMACIONES - BODA DE LUZ Y JULIO"`,
+      `"Fecha del Evento: Viernes, 9 de Octubre de 2026 • 11:30 AM (Puntual)"`,
+      `"Lugar: Recepciones Luana — Ko'ê Pyta"`,
       `"Fecha de Generación: ${exportDate}"`,
       `"Total Plazas Confirmadas: ${totalAttendeesCount} (Titulares: ${confirmedRsvps.length} + Acompañantes: ${totalCompanionsCount})"`,
       `"No Asistirán: ${declinedRsvps.length}"`,
@@ -728,8 +731,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
                   />
                 )}
 
-                <p className="text-[11px] text-white/50 font-sans pt-1">
-                  💡 Este motivo se le mostrará al invitado si vuelve a consultar el enlace para que conozca la razón y pueda volver a confirmar si corresponde.
+                <p className="text-[11px] text-white/50 font-sans pt-1 flex items-start gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-gold-400 shrink-0 mt-0.5" />
+                  <span>Este motivo se le mostrará al invitado si vuelve a consultar el enlace para que conozca la razón y pueda volver a confirmar si corresponde.</span>
                 </p>
               </div>
 

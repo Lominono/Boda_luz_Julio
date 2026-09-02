@@ -62,6 +62,12 @@ const STORAGE_KEYS = {
   PASSCODES: 'boda_luz_julio_firebase_passcodes',
 };
 
+// Cross-tab real-time sync channel
+const syncChannel: BroadcastChannel | null =
+  typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('boda_luz_julio_realtime_sync_v1')
+    : null;
+
 export const DataStore = {
   // Real-time listener for RSVPs
   subscribeToRsvps(callback: (rsvps: RsvpData[]) => void): () => void {
@@ -72,6 +78,15 @@ export const DataStore = {
       }
     };
     window.addEventListener('wedding_rsvp_sync', handleCustomSync);
+
+    const handleBroadcast = (e: MessageEvent) => {
+      if (e.data?.type === 'wedding_rsvp_sync' && Array.isArray(e.data.detail)) {
+        callback(e.data.detail);
+      }
+    };
+    if (syncChannel) {
+      syncChannel.addEventListener('message', handleBroadcast);
+    }
 
     if (db) {
       try {
@@ -99,6 +114,7 @@ export const DataStore = {
         return () => {
           unsubscribe();
           window.removeEventListener('wedding_rsvp_sync', handleCustomSync);
+          if (syncChannel) syncChannel.removeEventListener('message', handleBroadcast);
         };
       } catch (err) {
         console.warn('Real-time subscription init error:', err);
@@ -108,6 +124,7 @@ export const DataStore = {
     this.getRsvps().then(callback);
     return () => {
       window.removeEventListener('wedding_rsvp_sync', handleCustomSync);
+      if (syncChannel) syncChannel.removeEventListener('message', handleBroadcast);
     };
   },
 
@@ -120,6 +137,15 @@ export const DataStore = {
       }
     };
     window.addEventListener('wedding_guestbook_sync', handleCustomSync);
+
+    const handleBroadcast = (e: MessageEvent) => {
+      if (e.data?.type === 'wedding_guestbook_sync' && Array.isArray(e.data.detail)) {
+        callback(e.data.detail);
+      }
+    };
+    if (syncChannel) {
+      syncChannel.addEventListener('message', handleBroadcast);
+    }
 
     if (db) {
       try {
@@ -147,6 +173,7 @@ export const DataStore = {
         return () => {
           unsubscribe();
           window.removeEventListener('wedding_guestbook_sync', handleCustomSync);
+          if (syncChannel) syncChannel.removeEventListener('message', handleBroadcast);
         };
       } catch (err) {
         console.warn('Real-time subscription init error:', err);
@@ -156,6 +183,7 @@ export const DataStore = {
     this.getGuestbookMessages().then(callback);
     return () => {
       window.removeEventListener('wedding_guestbook_sync', handleCustomSync);
+      if (syncChannel) syncChannel.removeEventListener('message', handleBroadcast);
     };
   },
 
@@ -239,6 +267,9 @@ export const DataStore = {
     ];
     localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('wedding_rsvp_sync', { detail: updated }));
+    if (syncChannel) {
+      syncChannel.postMessage({ type: 'wedding_rsvp_sync', detail: updated });
+    }
 
     // Also register message in guestbook if written
     if (rsvp.loveMessage && rsvp.loveMessage.trim()) {
@@ -279,6 +310,9 @@ export const DataStore = {
     const filtered = existing.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEYS.RSVPS, JSON.stringify(filtered));
     window.dispatchEvent(new CustomEvent('wedding_rsvp_sync', { detail: filtered }));
+    if (syncChannel) {
+      syncChannel.postMessage({ type: 'wedding_rsvp_sync', detail: filtered });
+    }
 
     const name = guestInfo?.fullName || target?.fullName || '';
     const phone = guestInfo?.phone || target?.phone || '';
@@ -513,6 +547,9 @@ export const DataStore = {
     const updated = [msgWithTimestamp, ...existing.filter((m) => m.id !== msg.id)];
     localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('wedding_guestbook_sync', { detail: updated }));
+    if (syncChannel) {
+      syncChannel.postMessage({ type: 'wedding_guestbook_sync', detail: updated });
+    }
 
     if (db) {
       try {
@@ -528,6 +565,9 @@ export const DataStore = {
     const filtered = existing.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEYS.GUESTBOOK, JSON.stringify(filtered));
     window.dispatchEvent(new CustomEvent('wedding_guestbook_sync', { detail: filtered }));
+    if (syncChannel) {
+      syncChannel.postMessage({ type: 'wedding_guestbook_sync', detail: filtered });
+    }
 
     if (db) {
       try {
