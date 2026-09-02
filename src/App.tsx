@@ -32,6 +32,31 @@ export const App: React.FC = () => {
     }
   }, [currentView]);
 
+  // Prevent any document scrolling while a loading screen is active
+  useEffect(() => {
+    if (isLoading || isOpeningInvitation) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.body.classList.add('overflow-hidden');
+      document.documentElement.classList.add('overflow-hidden');
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.body.classList.remove('overflow-hidden');
+      document.documentElement.classList.remove('overflow-hidden');
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.body.classList.remove('overflow-hidden');
+      document.documentElement.classList.remove('overflow-hidden');
+    };
+  }, [isLoading, isOpeningInvitation]);
+
   // Check URL query parameters / hash for /admin
   useEffect(() => {
     const checkAdminRoute = () => {

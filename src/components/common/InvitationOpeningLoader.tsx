@@ -15,7 +15,8 @@ export const InvitationOpeningLoader: React.FC<InvitationOpeningLoaderProps> = (
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, filter: 'blur(12px)' }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 text-white select-none pointer-events-auto backdrop-blur-xl font-sans"
+          onTouchMove={(e) => e.preventDefault()}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 text-white select-none pointer-events-auto backdrop-blur-xl font-sans touch-none overscroll-none"
         >
           {/* Subtle Ambient Radial Gold Glow */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold-500/20 via-black to-black pointer-events-none" />

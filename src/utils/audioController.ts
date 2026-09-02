@@ -9,8 +9,8 @@ class WeddingAudioController {
   private fadeInterval: number | null = null;
   private readonly songUrl = '/music/Rabito - Un Pacto Con Dios (Audio) - La Mezcla Cristiana (youtube).mp3';
   private readonly TARGET_VOLUME = 0.55;
-  private readonly FADE_IN_DURATION_MS = 2500;
-  private readonly FADE_OUT_DURATION_MS = 800;
+  private readonly FADE_IN_DURATION_MS = 2000;
+  private readonly FADE_OUT_DURATION_MS = 280;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -81,6 +81,8 @@ class WeddingAudioController {
 
   public pause() {
     if (!this.audio) return;
+    this.isPlaying = false;
+    this.notify();
     this.startFadeOut();
   }
 
@@ -101,7 +103,7 @@ class WeddingAudioController {
     if (this.fadeInterval) clearInterval(this.fadeInterval);
 
     this.audio.volume = 0;
-    const steps = 60;
+    const steps = 40;
     const stepTime = this.FADE_IN_DURATION_MS / steps;
     const increment = this.TARGET_VOLUME / steps;
     let step = 0;
@@ -130,7 +132,7 @@ class WeddingAudioController {
     if (this.fadeInterval) clearInterval(this.fadeInterval);
 
     const startVol = this.audio.volume;
-    const steps = 24;
+    const steps = 14;
     const stepTime = this.FADE_OUT_DURATION_MS / steps;
     const decrement = startVol / steps;
     let step = 0;
@@ -140,7 +142,6 @@ class WeddingAudioController {
       step++;
       const nextVol = Math.max(0, startVol - step * decrement);
       this.audio.volume = nextVol;
-      this.notify();
 
       if (step >= steps || this.audio.volume <= 0.001) {
         this.audio.volume = 0;

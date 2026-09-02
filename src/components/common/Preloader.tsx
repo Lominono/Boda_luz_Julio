@@ -88,7 +88,8 @@ export const Preloader: React.FC<PreloaderProps> = ({ onLoaded }) => {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, filter: 'blur(8px)' }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0A0908] text-white select-none pointer-events-auto font-sans"
+          onTouchMove={(e) => e.preventDefault()}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0A0908] text-white select-none pointer-events-auto font-sans touch-none overscroll-none"
         >
           {/* Subtle Ambient Radial Glow */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold-500/15 via-[#0A0908] to-[#0A0908] pointer-events-none" />

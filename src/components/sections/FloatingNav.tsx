@@ -68,16 +68,18 @@ export const FloatingNav: React.FC<FloatingNavProps> = ({ onBackToCover }) => {
 
       <button
         onClick={handleToggleSound}
-        className="flex flex-col items-center gap-0.5 text-gold-300 hover:text-gold-200 transition-colors p-1 cursor-pointer active:scale-95"
-        title={isPlaying ? 'Pausar música y silenciar' : 'Reproducir música'}
+        className={`flex flex-col items-center gap-0.5 transition-all p-1 cursor-pointer active:scale-90 ${
+          isPlaying ? 'text-gold-300 hover:text-gold-200' : 'text-white/50 hover:text-roseDust-300'
+        }`}
+        title={isPlaying ? 'Silenciar música' : 'Reproducir música'}
       >
         {isPlaying ? (
-          <Volume2 className="w-4 h-4 text-gold-400" />
+          <Volume2 className="w-4 h-4 text-gold-400 animate-pulse" />
         ) : (
-          <VolumeX className="w-4 h-4 text-white/50" />
+          <VolumeX className="w-4 h-4 text-roseDust-300" />
         )}
         <span className="text-[10px] font-serif uppercase tracking-wider">
-          {isPlaying ? 'Música' : 'Mudo'}
+          {isPlaying ? 'Música' : 'Silencio'}
         </span>
       </button>
     </nav>

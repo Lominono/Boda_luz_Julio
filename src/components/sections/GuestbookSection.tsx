@@ -22,9 +22,15 @@ export const GuestbookSection: React.FC = () => {
   const currentDeviceId = getUserDeviceId();
 
   useEffect(() => {
-    // Real-time Firestore sync
+    // Real-time Firestore sync with strict ID deduplication
     const unsubscribe = DataStore.subscribeToGuestbook((list) => {
-      setMessages(list);
+      const seen = new Set<string>();
+      const deduplicated = list.filter((m) => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
+      setMessages(deduplicated);
     });
 
     // Load liked IDs & authored IDs
@@ -66,7 +72,6 @@ export const GuestbookSection: React.FC = () => {
     };
 
     await DataStore.saveGuestbookMessage(newMessage);
-    setMessages((prev) => [newMessage, ...prev]);
 
     // Save to authored IDs for this device
     const updatedAuthored = new Set(myAuthoredIds);
