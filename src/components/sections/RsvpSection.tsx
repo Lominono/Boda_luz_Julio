@@ -27,7 +27,7 @@ import {
 import { sound } from '../../utils/soundEffects';
 import { RsvpData, AccessPasscode } from '../../types';
 import { DataStore, getUserDeviceId } from '../../lib/firebase';
-import { openSmartCalendar, isAppleDevice } from '../../utils/calendar';
+import { openSmartCalendar, isAppleDevice, WEDDING_MAPS_URL } from '../../utils/calendar';
 
 interface RsvpSectionProps {
   currentPasscode?: AccessPasscode;
@@ -335,7 +335,7 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                 )}
 
                 <a
-                  href="https://maps.app.goo.gl/GQ2QPpmfaAfmGNV17"
+                  href={WEDDING_MAPS_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => sound.playClick()}

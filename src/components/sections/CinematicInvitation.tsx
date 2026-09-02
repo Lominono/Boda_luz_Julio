@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { getRandomVerse } from '../../data/biblicalVerses';
 import { sound } from '../../utils/soundEffects';
+import { WEDDING_MAPS_URL } from '../../utils/calendar';
 
 interface TimeLeft {
   days: number;
@@ -201,7 +202,7 @@ export const CinematicInvitation: React.FC = () => {
         {/* Action Buttons */}
         <div className="mt-6 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
-            href="https://maps.app.goo.gl/GQ2QPpmfaAfmGNV17"
+            href={WEDDING_MAPS_URL}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => sound.playClick()}

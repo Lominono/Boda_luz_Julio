@@ -4,10 +4,14 @@ export const isAppleDevice = (): boolean => {
   return /iPhone|iPad|iPod|Macintosh/i.test(navigator.userAgent);
 };
 
+export const WEDDING_MAPS_URL =
+  'https://www.google.com/maps/place/Recepciones+Luana/@-24.1906273,-56.4706531,17z/data=!3m1!4b1!4m6!3m5!1s0x946093bc06296d7b:0xb4f73d4c443fdcc2!8m2!3d-24.190631!4d-56.4687241!16s%2Fg%2F11rdz7qt9j?entry=tts&skid=ab75a54a-ee70-4ee3-ae93-368283b9243a';
+
 export const weddingEvent = {
   title: 'Boda de Luz & Julio',
   description: 'Celebración de la Boda de Luz & Julio en Recepciones Luana Ko\'ê Pyta.',
   location: 'Recepciones Luana, Ko\'ê Pyta',
+  mapsUrl: WEDDING_MAPS_URL,
   // Viernes 9 de Octubre de 2026 a las 11:30 AM (Hora de Paraguay UTC-3 -> 14:30 UTC)
   startDateUtc: '20261009T143000Z',
   endDateUtc: '20261009T230000Z',
