@@ -28,6 +28,7 @@ import { sound } from '../../utils/soundEffects';
 import { RsvpData, AccessPasscode } from '../../types';
 import { DataStore, getUserDeviceId } from '../../lib/firebase';
 import { openSmartCalendar, isAppleDevice, WEDDING_MAPS_URL } from '../../utils/calendar';
+import PhoneInputWithCountry from '../common/PhoneInputWithCountry';
 
 interface RsvpSectionProps {
   currentPasscode?: AccessPasscode;
@@ -448,12 +449,9 @@ export const RsvpSection: React.FC<RsvpSectionProps> = ({ currentPasscode }) => 
                       (para avisos de mesa y ubicación)
                     </span>
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInputWithCountry
                     value={formData.phone || ''}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Ej: 0981 123 456"
-                    className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/20 focus:outline-none focus:ring-2 focus:ring-gold-400/80 font-serif text-white placeholder:text-white/30 text-base transition-all"
+                    onChange={(phone) => setFormData({ ...formData, phone })}
                   />
                 </div>
               </div>
