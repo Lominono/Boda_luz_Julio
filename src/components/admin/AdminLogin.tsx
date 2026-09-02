@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, ArrowRight, ArrowLeft, Eye, EyeOff, ShieldCheck, Sparkles } from 'lucide-react';
 import { sound } from '../../utils/soundEffects';
+import { weddingAudio } from '../../utils/audioController';
 
 interface AdminLoginProps {
   onSuccess: () => void;
@@ -13,6 +14,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess, onCancel }) =
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+
+  useEffect(() => {
+    // Strictly silence music inside admin login
+    weddingAudio.disablePlayback();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

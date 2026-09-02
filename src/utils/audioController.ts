@@ -4,13 +4,13 @@ type AudioStateListener = (isPlaying: boolean, volume: number) => void;
 class WeddingAudioController {
   private audio: HTMLAudioElement | null = null;
   private isPlaying: boolean = false;
-  private fadeInterval: number | null = null;
+  private isAllowed: boolean = false; // Only allowed inside the letter / invitation
   private listeners: Set<AudioStateListener> = new Set();
-
+  private fadeInterval: number | null = null;
   private readonly songUrl = '/music/Rabito - Un Pacto Con Dios (Audio) - La Mezcla Cristiana (youtube).mp3';
-  private readonly TARGET_VOLUME = 0.30;
-  private readonly FADE_IN_DURATION_MS = 15000; // 15s fade-in
-  private readonly FADE_OUT_DURATION_MS = 1200; // 1.2s smooth fade-out
+  private readonly TARGET_VOLUME = 0.55;
+  private readonly FADE_IN_DURATION_MS = 2500;
+  private readonly FADE_OUT_DURATION_MS = 800;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -25,18 +25,6 @@ class WeddingAudioController {
     a.preload = 'auto';
     a.volume = 0;
     this.audio = a;
-
-    // Auto-unlock audio upon first touch/click
-    const handleFirstGesture = () => {
-      if (this.audio && this.audio.paused && !this.isPlaying) {
-        this.play();
-      }
-      window.removeEventListener('click', handleFirstGesture);
-      window.removeEventListener('touchstart', handleFirstGesture);
-    };
-
-    window.addEventListener('click', handleFirstGesture, { once: true });
-    window.addEventListener('touchstart', handleFirstGesture, { once: true });
   }
 
   public subscribe(listener: AudioStateListener): () => void {
@@ -52,7 +40,28 @@ class WeddingAudioController {
     this.listeners.forEach((fn) => fn(this.isPlaying, vol));
   }
 
+  // Explicitly allow playback only in the letter / invitation section
+  public enablePlayback() {
+    this.isAllowed = true;
+  }
+
+  // Immediately silence and forbid audio in the admin panel and landing
+  public disablePlayback() {
+    this.isAllowed = false;
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.volume = 0;
+    }
+    this.isPlaying = false;
+    this.notify();
+  }
+
   public play() {
+    if (!this.isAllowed) return;
     this.initAudio();
     if (!this.audio) return;
 
@@ -66,7 +75,7 @@ class WeddingAudioController {
       this.notify();
       this.startFadeIn();
     }).catch((err) => {
-      console.warn('Audio play restricted:', err);
+      console.warn('Audio play restricted by browser policy:', err);
     });
   }
 
@@ -88,7 +97,7 @@ class WeddingAudioController {
   }
 
   private startFadeIn() {
-    if (!this.audio) return;
+    if (!this.audio || !this.isAllowed) return;
     if (this.fadeInterval) clearInterval(this.fadeInterval);
 
     this.audio.volume = 0;
@@ -98,7 +107,10 @@ class WeddingAudioController {
     let step = 0;
 
     this.fadeInterval = window.setInterval(() => {
-      if (!this.audio) return;
+      if (!this.audio || !this.isAllowed) {
+        if (this.fadeInterval) clearInterval(this.fadeInterval);
+        return;
+      }
       step++;
       const nextVol = Math.min(this.TARGET_VOLUME, step * increment);
       this.audio.volume = nextVol;

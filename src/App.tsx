@@ -14,10 +14,21 @@ import FloatingNav from './components/sections/FloatingNav';
 import MusicPlayer from './components/sections/MusicPlayer';
 import { ArrowLeft } from 'lucide-react';
 import { sound } from './utils/soundEffects';
+import { weddingAudio } from './utils/audioController';
 
 export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'hero' | 'invitation' | 'adminLogin' | 'adminDashboard'>('hero');
+
+  // Control audio playback: strictly active only in the invitation ("la carta") and disabled in admin / hero
+  useEffect(() => {
+    if (currentView === 'invitation') {
+      weddingAudio.enablePlayback();
+      weddingAudio.play();
+    } else {
+      weddingAudio.disablePlayback();
+    }
+  }, [currentView]);
 
   // Check URL query parameters / hash for /admin
   useEffect(() => {

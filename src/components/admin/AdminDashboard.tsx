@@ -21,6 +21,7 @@ import {
 import { DataStore } from '../../lib/firebase';
 import { RsvpData, GuestbookMessage } from '../../types';
 import { sound } from '../../utils/soundEffects';
+import { weddingAudio } from '../../utils/audioController';
 
 interface AdminDashboardProps {
   onExit: () => void;
@@ -64,6 +65,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExit }) => {
   };
 
   useEffect(() => {
+    // Silence music completely inside admin panel
+    weddingAudio.disablePlayback();
+
     setIsLoading(true);
     DataStore.checkConnection().then(setDbStatus);
 
