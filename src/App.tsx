@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Preloader from './components/common/Preloader';
+import InvitationOpeningLoader from './components/common/InvitationOpeningLoader';
 import LuxuryBrandHero from './components/landing/LuxuryBrandHero';
 import VantaCloudsBackground from './components/reactbits/VantaCloudsBackground';
 import GradualBlur from './components/reactbits/GradualBlur';
@@ -18,6 +19,7 @@ import { weddingAudio } from './utils/audioController';
 
 export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isOpeningInvitation, setIsOpeningInvitation] = useState(false);
   const [currentView, setCurrentView] = useState<'hero' | 'invitation' | 'adminLogin' | 'adminDashboard'>('hero');
 
   // Control audio playback: strictly active only in the invitation ("la carta") and disabled in admin / hero
@@ -57,8 +59,20 @@ export const App: React.FC = () => {
 
   const handleOpenInvitation = () => {
     sound.playClick();
+    setIsOpeningInvitation(true);
     setCurrentView('invitation');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Safety fallback to hide loader after 2.2s max if device is extremely slow
+    setTimeout(() => {
+      setIsOpeningInvitation(false);
+    }, 2200);
+  };
+
+  const handleVantaReady = () => {
+    setTimeout(() => {
+      setIsOpeningInvitation(false);
+    }, 350);
   };
 
   const handleBackToHero = () => {
@@ -81,10 +95,13 @@ export const App: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-black text-white selection:bg-white selection:text-black font-sans">
-      {/* Smart Preloader for Mobile & Desktop */}
+      {/* Smart Preloader for Mobile & Desktop First Visit */}
       {isLoading && (
         <Preloader onLoaded={() => setIsLoading(false)} />
       )}
+
+      {/* Screen Loader when opening the letter / invitation */}
+      <InvitationOpeningLoader isVisible={isOpeningInvitation} />
 
       {/* 1. Full-Viewport Luxury Video Hero Landing */}
       {currentView === 'hero' && (
@@ -108,7 +125,7 @@ export const App: React.FC = () => {
 
       {/* 4. Wedding Invitation with Vanta 3D Clouds Background */}
       {currentView === 'invitation' && (
-        <VantaCloudsBackground>
+        <VantaCloudsBackground onReady={handleVantaReady}>
           {/* Hollywood Anamorphic Lens Depth of Field */}
           <GradualBlur position="both" height="130px" />
 
